@@ -222,7 +222,23 @@
           </TabItem>
 
 
-          <TabItem x:Name="MonacoTab" Header="Monaco Editor"><wv2:WebView2 x:Name="MonacoEditor"/></TabItem>
+          <TabItem x:Name="MonacoTab" Header="Monaco Editor">
+            <Grid Background="#171A21">
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+              <DockPanel Grid.Row="0" Background="#20242E" LastChildFill="True">
+                <Button Content="Close document" Click="CloseCurrentDocument_Click" DockPanel.Dock="Right" Margin="4"/>
+                <ListBox x:Name="OpenDocumentsList" Height="34" Background="#20242E" Foreground="#F1F4FA"
+                         BorderThickness="0" SelectionChanged="OpenDocumentsList_SelectionChanged"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBox.ItemTemplate><DataTemplate><Border Background="#273145" CornerRadius="4" Padding="12,5" Margin="2,3">
+                    <TextBlock Text="{Binding DisplayName}" Foreground="#E7ECF5" FontSize="12"/>
+                  </Border></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+              <wv2:WebView2 x:Name="MonacoEditor" Grid.Row="1"/>
+            </Grid>
+          </TabItem>
           <TabItem x:Name="TerminalTab" Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
           
           <TabItem x:Name="ExtensionsTab" Header="Extensions">
