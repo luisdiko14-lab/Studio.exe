@@ -215,7 +215,9 @@ public partial class MainWindow : Window
         try
         {
             _isLoadingEditor = true; EditorText.Text = File.ReadAllText(path);
-            _currentFile = path; _isDirty = false; CurrentFileText.Text = Path.GetFileName(path);
+            _monacoText = EditorText.Text;
+            _currentFile = path;
+            _ = SetMonacoTextAsync(_monacoText, path); _isDirty = false; CurrentFileText.Text = Path.GetFileName(path);
             StatusText.Text = $"Opened {Path.GetFileName(path)}"; WorkspaceTabs.SelectedItem = EditorTab;
         }
         catch (Exception ex) { MessageBox.Show($"Could not open file:\n{ex.Message}", "Open file failed"); }
