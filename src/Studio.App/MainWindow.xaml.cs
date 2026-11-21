@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<OpenDocument> _openDocuments = [];
     private OpenDocument? _currentDocument;
     private bool _suppressDocumentSelection;
+    private CancellationTokenSource? _searchCancellation;
     private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private StdioProtocolProcess? _languageServer, _debugAdapter;
     private string? _languageServerId, _documentUri;
@@ -164,7 +165,7 @@ public partial class MainWindow : Window
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
         };
         if (dialog.ShowDialog() != true) return;
-        _projectRoot = dialog.FolderName; _currentDirectory = _projectRoot;
+        _projectRoot = dialog.FolderName; _currentDirectory = _projectRoot; GitRootText.Text = _projectRoot;
         ProjectStatusText.Text = _projectRoot; RefreshExplorer(); RestartTerminal("PowerShell");
         StatusText.Text = "Project opened";
     }
@@ -1030,6 +1031,7 @@ public partial class MainWindow : Window
     }
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
     private void ShowExtensions_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ExtensionsTab;
+    private void ShowSearchGit_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = SearchGitTab;
     private void RefreshExtensionStatus()
     {
         JsStatus.Text = _settings.JavaScriptEnabled ? "Enabled" : "Disabled";
@@ -1459,6 +1461,98 @@ public partial class MainWindow : Window
         TimelineSlider.Value += 1.0 / 30.0;
     }
 
+    private void InsetTriangle_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) { MessageBox.Show("Select a mesh first."); return; }
+        if (!int.TryParse(TopologyTriangleIndex.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var triangle) ||
+            !TryNumber(InsetAmountInput.Text, out var fraction) || fraction <= 0 || fraction > 0.45)
+        {
+            MessageBox.Show("Enter a valid triangle index and inset fraction between 0 and 0.45.", "Inset face");
+            return;
+        }
+        var indices = item.Mesh.TriangleIndices;
+        if (triangle < 0 || triangle >= indices.Count / 3)
+        {
+            MessageBox.Show("Triangle index is outside the mesh.", "Inset face");
+            return;
+        }
+        var offset = triangle * 3;
+        var aIndex = indices[offset]; var bIndex = indices[offset + 1]; var cIndex = indices[offset + 2];
+        var positions = item.Mesh.Positions.ToList();
+        var a = positions[aIndex]; var b = positions[bIndex]; var c = positions[cIndex];
+        var center = new Point3D((a.X + b.X + c.X) / 3, (a.Y + b.Y + c.Y) / 3, (a.Z + b.Z + c.Z) / 3);
+        var amount = 1.0 - fraction;
+        var insetA = positions.Count; positions.Add(new Point3D(center.X + (a.X - center.X) * amount, center.Y + (a.Y - center.Y) * amount, center.Z + (a.Z - center.Z) * amount));
+        var insetB = positions.Count; positions.Add(new Point3D(center.X + (b.X - center.X) * amount, center.Y + (b.Y - center.Y) * amount, center.Z + (b.Z - center.Z) * amount));
+        var insetC = positions.Count; positions.Add(new Point3D(center.X + (c.X - center.X) * amount, center.Y + (c.Y - center.Y) * amount, center.Z + (c.Z - center.Z) * amount));
+        var result = new Int32Collection();
+        for (var i = 0; i + 2 < indices.Count; i += 3)
+        {
+            if (i != offset) { result.Add(indices[i]); result.Add(indices[i + 1]); result.Add(indices[i + 2]); continue; }
+            result.Add(aIndex); result.Add(bIndex); result.Add(insetB);
+            result.Add(aIndex); result.Add(insetB); result.Add(insetA);
+            result.Add(bIndex); result.Add(cIndex); result.Add(insetC);
+            result.Add(bIndex); result.Add(insetC); result.Add(insetB);
+            result.Add(cIndex); result.Add(aIndex); result.Add(insetA);
+            result.Add(cIndex); result.Add(insetA); result.Add(insetC);
+            result.Add(insetA); result.Add(insetB); result.Add(insetC);
+        }
+        item.Mesh = new MeshGeometry3D { Positions = new Point3DCollection(positions), TriangleIndices = result };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = item.Name + ": inset triangle " + triangle;
+    }
+
+    private void SplitEdge_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) { MessageBox.Show("Select a mesh first."); return; }
+        if (!int.TryParse(TopologyTriangleIndex.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var triangle) ||
+            !int.TryParse(SplitEdgeIndexInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var edge) || edge is < 0 or > 2)
+        {
+            MessageBox.Show("Enter a valid triangle index and edge 0, 1 or 2.", "Split edge");
+            return;
+        }
+        var indices = item.Mesh.TriangleIndices;
+        if (triangle < 0 || triangle >= indices.Count / 3)
+        {
+            MessageBox.Show("Triangle index is outside the mesh.", "Split edge");
+            return;
+        }
+        var offset = triangle * 3;
+        var edgeA = indices[offset + edge];
+        var edgeB = indices[offset + ((edge + 1) % 3)];
+        var sharedMidpoint = item.Mesh.Positions.Count;
+        var pa = item.Mesh.Positions[edgeA]; var pb = item.Mesh.Positions[edgeB];
+        var midpoint = new Point3D((pa.X + pb.X) / 2, (pa.Y + pb.Y) / 2, (pa.Z + pb.Z) / 2);
+        var positions = new Point3DCollection(item.Mesh.Positions) { midpoint };
+        var result = new Int32Collection();
+        var splitCount = 0;
+        for (var i = 0; i + 2 < indices.Count; i += 3)
+        {
+            var vertices = new[] { indices[i], indices[i + 1], indices[i + 2] };
+            var split = false;
+            for (var corner = 0; corner < 3; corner++)
+            {
+                var u = vertices[corner];
+                var v = vertices[(corner + 1) % 3];
+                var w = vertices[(corner + 2) % 3];
+                if ((u == edgeA && v == edgeB) || (u == edgeB && v == edgeA))
+                {
+                    result.Add(u); result.Add(sharedMidpoint); result.Add(w);
+                    result.Add(sharedMidpoint); result.Add(v); result.Add(w);
+                    split = true; splitCount++; break;
+                }
+            }
+            if (!split) { result.Add(vertices[0]); result.Add(vertices[1]); result.Add(vertices[2]); }
+        }
+        item.Mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = result };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = item.Name + ": split edge shared by " + splitCount + " triangle(s)";
+    }
+
     private void ExtrudeFace_Click(object sender, RoutedEventArgs e)
     {
         var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
@@ -1786,6 +1880,180 @@ public partial class MainWindow : Window
     private static string SanitizeObjectName(string name) =>
         string.Join("_", name.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
 
+    private async void SearchWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        var root = _projectRoot;
+        var query = WorkspaceSearchQuery.Text;
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        {
+            MessageBox.Show("Open a project folder before searching.", "Workspace search");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            MessageBox.Show("Enter text to search for.", "Workspace search");
+            return;
+        }
+
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = new CancellationTokenSource();
+        var token = _searchCancellation.Token;
+        var comparison = SearchCaseSensitive.IsChecked == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        StatusText.Text = "Searching workspace…";
+        SearchResultsList.ItemsSource = null;
+        try
+        {
+            var results = await Task.Run(() => SearchWorkspaceFiles(root, query, comparison, token), token);
+            SearchResultsList.ItemsSource = results;
+            StatusText.Text = $"Found {results.Count} match(es)";
+        }
+        catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
+        catch (Exception ex) { StatusText.Text = "Search failed: " + ex.Message; }
+    }
+
+    private static List<SearchResult> SearchWorkspaceFiles(string root, string query, StringComparison comparison, CancellationToken token)
+    {
+        var results = new List<SearchResult>();
+        var directories = new Stack<string>();
+        directories.Push(root);
+        var ignoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { ".git", ".vs", "bin", "obj", "node_modules", "artifacts", ".idea", "packages" };
+        while (directories.Count > 0 && results.Count < 1000)
+        {
+            token.ThrowIfCancellationRequested();
+            var current = directories.Pop();
+            IEnumerable<string> subDirectories;
+            IEnumerable<string> files;
+            try
+            {
+                subDirectories = Directory.EnumerateDirectories(current).ToArray();
+                files = Directory.EnumerateFiles(current).ToArray();
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { continue; }
+
+            foreach (var directory in subDirectories)
+            {
+                token.ThrowIfCancellationRequested();
+                if (!ignoredDirectories.Contains(Path.GetFileName(directory))) directories.Push(directory);
+            }
+            foreach (var file in files)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    var info = new FileInfo(file);
+                    if (info.Length > 2 * 1024 * 1024) continue;
+                    if (new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".7z", ".dll", ".exe", ".pdb", ".woff", ".woff2", ".ttf" }
+                        .Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)) continue;
+                    var lineNumber = 0;
+                    foreach (var line in File.ReadLines(file))
+                    {
+                        lineNumber++;
+                        var index = line.IndexOf(query, comparison);
+                        if (index < 0) continue;
+                        var preview = line.Trim();
+                        if (preview.Length > 220) preview = preview[..220] + "…";
+                        results.Add(new SearchResult(file, lineNumber, index + 1, preview));
+                        if (results.Count >= 1000) break;
+                    }
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or DecoderFallbackException) { }
+                if (results.Count >= 1000) break;
+            }
+        }
+        return results;
+    }
+
+    private async void SearchResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (SearchResultsList.SelectedItem is not SearchResult result) return;
+        OpenFile(result.FilePath);
+        await Task.Delay(150);
+        if (_monacoReady)
+        {
+            await MonacoEditor.ExecuteScriptAsync("window.studioRevealPosition(" +
+                result.Line.ToString(CultureInfo.InvariantCulture) + "," +
+                result.Column.ToString(CultureInfo.InvariantCulture) + ");");
+        }
+    }
+
+    private void RefreshGit_Click(object sender, RoutedEventArgs e) => _ = RunGitCommandAsync("status", "--short", "--branch");
+    private void GitPull_Click(object sender, RoutedEventArgs e) => _ = RunGitCommandAsync("pull", "--ff-only");
+    private void GitPush_Click(object sender, RoutedEventArgs e) => _ = RunGitCommandAsync("push");
+
+    private async void GitCommit_Click(object sender, RoutedEventArgs e)
+    {
+        var message = GitCommitMessage.Text.Trim();
+        if (message.Length == 0) { MessageBox.Show("Enter a commit message first.", "Git commit"); return; }
+        if (!await RunGitCommandAsync("add", "--all")) return;
+        await RunGitCommandAsync("commit", "-m", message);
+    }
+
+    private async Task<bool> RunGitCommandAsync(params string[] arguments)
+    {
+        if (string.IsNullOrWhiteSpace(_projectRoot) || !Directory.Exists(_projectRoot))
+        {
+            MessageBox.Show("Open a project folder before using Git.", "Git");
+            return false;
+        }
+        var info = new ProcessStartInfo
+        {
+            FileName = "git", WorkingDirectory = _projectRoot,
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        info.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        info.Environment["GCM_INTERACTIVE"] = "Never";
+        try
+        {
+            using var process = new Process { StartInfo = info };
+            process.Start();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var output = await outputTask;
+            var error = await errorTask;
+            var command = "git " + string.Join(" ", arguments);
+            GitOutput.Text += Environment.NewLine + "> " + command + Environment.NewLine + output + error;
+            GitOutput.ScrollToEnd();
+            StatusText.Text = process.ExitCode == 0 ? command + " completed" : command + " failed (exit " + process.ExitCode + ")";
+            if (arguments.FirstOrDefault() is "commit" or "pull" or "push" or "add")
+                await RefreshGitStatusOutputAsync();
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            GitOutput.Text += Environment.NewLine + "Git error: " + ex.Message;
+            StatusText.Text = "Git command failed";
+            return false;
+        }
+    }
+
+    private async Task RefreshGitStatusOutputAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_projectRoot)) return;
+        var info = new ProcessStartInfo
+        {
+            FileName = "git", WorkingDirectory = _projectRoot, UseShellExecute = false,
+            RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
+        };
+        info.ArgumentList.Add("status"); info.ArgumentList.Add("--short"); info.ArgumentList.Add("--branch");
+        info.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        try
+        {
+            using var process = Process.Start(info);
+            if (process is null) return;
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            GitOutput.Text += Environment.NewLine + "> git status --short --branch" + Environment.NewLine + output + error;
+            GitOutput.ScrollToEnd();
+        }
+        catch (Exception ex) { GitOutput.Text += Environment.NewLine + "Git status failed: " + ex.Message; }
+    }
+
     private void About_Click(object sender, RoutedEventArgs e)
     {
         MessageBox.Show($"{Title}\nWindows development workspace for JavaScript, Python, C#, Monaco, LSP/DAP integrations, a native ConPTY terminal, and a mesh-based 3D editor.\n\nIncludes multiple open Monaco documents, language-server features, Python/Node/.NET debug adapters, mesh import/edit/export, materials, and keyframe animation. See README for the remaining advanced IDE/modeling limits.",
@@ -1818,6 +2086,7 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (!ConfirmDiscardOrSave()) { e.Cancel = true; return; }
+        _searchCancellation?.Cancel(); _searchCancellation?.Dispose();
         _terminal.Dispose(); _languageServer?.Dispose(); _debugAdapter?.Dispose(); _animationTimer.Stop();
         try { if (_runProcess is { HasExited: false }) _runProcess.Kill(entireProcessTree: true); } catch { }
     }
@@ -1872,6 +2141,11 @@ public partial class MainWindow : Window
         public double RotationX { get; set; } public double RotationY { get; set; } public double RotationZ { get; set; }
         public SceneKeyframe Clone() => (SceneKeyframe)MemberwiseClone();
     }
+    private sealed record SearchResult(string FilePath, int Line, int Column, string Preview)
+    {
+        public string DisplayLabel => $"{Path.GetFileName(FilePath)}:{Line}";
+    }
+
     private sealed class OpenDocument : INotifyPropertyChanged
     {
         private bool _isDirty;
