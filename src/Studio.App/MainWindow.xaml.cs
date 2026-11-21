@@ -1111,6 +1111,62 @@ public partial class MainWindow : Window
         RefreshVertexRows(item);
     }
 
+    private void AddKeyframe_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) { MessageBox.Show("Select an object before adding a keyframe."); return; }
+        var time = TimelineSlider.Value;
+        item.Keyframes.RemoveAll(k => Math.Abs(k.Time - time) < 0.0001);
+        item.Keyframes.Add(new SceneKeyframe
+        {
+            Time = time, X = item.X, Y = item.Y, Z = item.Z,
+            ScaleX = item.ScaleX, ScaleY = item.ScaleY, ScaleZ = item.ScaleZ,
+            RotationX = item.RotationX, RotationY = item.RotationY, RotationZ = item.RotationZ
+        });
+        item.Keyframes.Sort((a, b) => a.Time.CompareTo(b.Time));
+        StatusText.Text = "Keyframe added for " + item.Name + " at " + time.ToString("0.00", CultureInfo.InvariantCulture) + "s";
+    }
+
+    private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_isUpdatingTimeline || SceneList is null) return;
+        TimelineTimeText.Text = TimelineSlider.Value.ToString("0.00", CultureInfo.InvariantCulture) + " s";
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is not null) ApplyAnimationAtTime(item, TimelineSlider.Value);
+    }
+
+    private static void ApplyAnimationAtTime(SceneObject item, double time)
+    {
+        if (item.Keyframes.Count == 0) return;
+        var before = item.Keyframes.LastOrDefault(k => k.Time <= time) ?? item.Keyframes[0];
+        var after = item.Keyframes.FirstOrDefault(k => k.Time >= time) ?? item.Keyframes[^1];
+        var amount = after.Time <= before.Time ? 0 : Math.Clamp((time - before.Time) / (after.Time - before.Time), 0, 1);
+        static double L(double a, double b, double t) => a + (b - a) * t;
+        item.X = L(before.X, after.X, amount); item.Y = L(before.Y, after.Y, amount); item.Z = L(before.Z, after.Z, amount);
+        item.ScaleX = L(before.ScaleX, after.ScaleX, amount); item.ScaleY = L(before.ScaleY, after.ScaleY, amount); item.ScaleZ = L(before.ScaleZ, after.ScaleZ, amount);
+        item.RotationX = L(before.RotationX, after.RotationX, amount); item.RotationY = L(before.RotationY, after.RotationY, amount); item.RotationZ = L(before.RotationZ, after.RotationZ, amount);
+        UpdateObjectTransform(item);
+    }
+
+    private void PlayTimeline_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_scene.Any(x => x.Keyframes.Count > 0)) { MessageBox.Show("Add at least one keyframe to the scene."); return; }
+        if (TimelineSlider.Value >= TimelineSlider.Maximum) TimelineSlider.Value = TimelineSlider.Minimum;
+        _animationTimer.Start(); StatusText.Text = "Timeline playing";
+    }
+    private void StopTimeline_Click(object sender, RoutedEventArgs e)
+    {
+        _animationTimer.Stop(); StatusText.Text = "Timeline paused";
+    }
+    private void AnimationTimer_Tick(object? sender, EventArgs e)
+    {
+        if (TimelineSlider.Value + 1.0 / 30.0 >= TimelineSlider.Maximum)
+        {
+            TimelineSlider.Value = TimelineSlider.Maximum; _animationTimer.Stop(); StatusText.Text = "Timeline finished"; return;
+        }
+        TimelineSlider.Value += 1.0 / 30.0;
+    }
+
     private void DuplicateObject_Click(object sender, RoutedEventArgs e)
     {
         var source = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
@@ -1138,13 +1194,14 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true) return;
         var document = new SceneFileData
         {
-            FormatVersion = 2,
+            FormatVersion = 3,
             Objects = _scene.Select(x => new SceneObjectFileData
             {
                 Name = x.Name, Shape = x.Shape, X = x.X, Y = x.Y, Z = x.Z,
                 ScaleX = x.ScaleX, ScaleY = x.ScaleY, ScaleZ = x.ScaleZ,
                 RotationX = x.RotationX, RotationY = x.RotationY, RotationZ = x.RotationZ,
-                ColorHex = x.ColorHex,
+                ColorHex = x.ColorHex, SpecularPower = x.SpecularPower, Opacity = x.Opacity,
+                Keyframes = x.Keyframes.Select(k => k.Clone()).ToList(),
                 Vertices = x.Mesh.Positions.Select(p => new[] { p.X, p.Y, p.Z }).ToArray(),
                 Triangles = x.Mesh.TriangleIndices.ToArray()
             }).ToList()
@@ -1159,7 +1216,7 @@ public partial class MainWindow : Window
         try
         {
             var doc = JsonSerializer.Deserialize<SceneFileData>(File.ReadAllText(dialog.FileName));
-            if (doc is null || doc.FormatVersion is < 1 or > 2) throw new InvalidDataException("Unsupported or invalid Studio 3D scene.");
+            if (doc is null || doc.FormatVersion is < 1 or > 3) throw new InvalidDataException("Unsupported or invalid Studio 3D scene.");
             foreach (var old in _scene.ToList()) _world.Children.Remove(old.Model);
             _scene.Clear(); _sceneNames.Clear();
             foreach (var saved in doc.Objects)
@@ -1181,7 +1238,7 @@ public partial class MainWindow : Window
                     mesh = custom;
                 }
                 var colorHex = string.IsNullOrWhiteSpace(saved.ColorHex) ? "#718EFF" : saved.ColorHex;
-                var material = CreateMaterial(colorHex);
+                var material = CreateMaterial(colorHex, saved.Opacity, saved.SpecularPower);
                 var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
                 var item = new SceneObject
                 {
@@ -1189,7 +1246,7 @@ public partial class MainWindow : Window
                     X = saved.X, Y = saved.Y, Z = saved.Z, ScaleX = saved.ScaleX,
                     ScaleY = saved.ScaleY, ScaleZ = saved.ScaleZ,
                     RotationX = saved.RotationX, RotationY = saved.RotationY, RotationZ = saved.RotationZ,
-                    ColorHex = colorHex
+                    ColorHex = colorHex, SpecularPower = saved.SpecularPower, Opacity = saved.Opacity, Keyframes = saved.Keyframes ?? []
                 };
                 UpdateObjectTransform(item); _scene.Add(item); _world.Children.Add(model);
             }
@@ -1288,7 +1345,7 @@ public partial class MainWindow : Window
 
     private sealed class SceneFileData
     {
-        public int FormatVersion { get; set; } = 2;
+        public int FormatVersion { get; set; } = 3;
         public List<SceneObjectFileData> Objects { get; set; } = [];
     }
     private sealed class SceneObjectFileData
@@ -1299,6 +1356,9 @@ public partial class MainWindow : Window
         public double ScaleX { get; set; } = 1; public double ScaleY { get; set; } = 1; public double ScaleZ { get; set; } = 1;
         public double RotationX { get; set; } public double RotationY { get; set; } public double RotationZ { get; set; }
         public string ColorHex { get; set; } = "#718EFF";
+        public double SpecularPower { get; set; } = 24;
+        public double Opacity { get; set; } = 1;
+        public List<SceneKeyframe>? Keyframes { get; set; }
         public double[][]? Vertices { get; set; }
         public int[]? Triangles { get; set; }
     }
@@ -1318,5 +1378,26 @@ public partial class MainWindow : Window
         public double RotationY { get; set; }
         public double RotationZ { get; set; }
         public string ColorHex { get; set; } = "#718EFF";
+        public double SpecularPower { get; set; } = 24;
+        public double Opacity { get; set; } = 1;
+        public List<SceneKeyframe> Keyframes { get; set; } = [];
+    }
+
+    private sealed class SceneKeyframe
+    {
+        public double Time { get; set; }
+        public double X { get; set; } public double Y { get; set; } public double Z { get; set; }
+        public double ScaleX { get; set; } = 1; public double ScaleY { get; set; } = 1; public double ScaleZ { get; set; } = 1;
+        public double RotationX { get; set; } public double RotationY { get; set; } public double RotationZ { get; set; }
+        public SceneKeyframe Clone() => (SceneKeyframe)MemberwiseClone();
+    }
+    private sealed class VertexEditRow : INotifyPropertyChanged
+    {
+        private double _x, _y, _z;
+        public int Index { get; set; }
+        public double X { get => _x; set { if (_x != value) { _x = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(X))); } } }
+        public double Y { get => _y; set { if (_y != value) { _y = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Y))); } } }
+        public double Z { get => _z; set { if (_z != value) { _z = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Z))); } } }
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 }
