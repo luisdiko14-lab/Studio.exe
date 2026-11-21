@@ -612,16 +612,13 @@ public partial class MainWindow : Window
         if (serverId is null)
         {
             _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
+            if (_monacoReady) _ = MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
             return;
         }
         if (path is null) return;
         var root = _projectRoot ?? Path.GetDirectoryName(path) ?? Environment.CurrentDirectory;
         if (_languageServer is { IsRunning: true } && _languageServerId == serverId)
         {
-            var close = JsonSerializer.Serialize(new { jsonrpc = "2.0", method = "textDocument/didClose", @params = new { textDocument = new { uri = _documentUri } } });
-            try { await _languageServer.SendAsync(close); } catch { }
-            var open = JsonSerializer.Serialize(new { jsonrpc = "2.0", method = "textDocument/didOpen", @params = new { textDocument = new { uri = _documentUri, languageId = language, version = ++_documentVersion, text = _monacoText } } });
-            try { await _languageServer.SendAsync(open); } catch { }
             return;
         }
 
