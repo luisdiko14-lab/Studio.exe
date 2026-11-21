@@ -1,76 +1,94 @@
 # Studio.exe
 
-Studio.exe is an early Windows desktop development-studio project built with C# and WPF on .NET 10. It combines a first-launch studio wizard, a project/file workspace, a persistent PowerShell or Command Prompt session, basic JavaScript/Python/C# run integrations, and a lightweight WPF 3D scene editor.
-
-> **Project status:** this repository now contains a buildable first implementation, not the complete commercial-grade IDE described in the original product brief. Read the limitations below before relying on advanced editor, terminal, debugging, or modeling capabilities.
+Studio.exe is a Windows desktop development workspace built with C# and WPF on .NET 10. It combines a first-launch wizard, project/file explorer, Monaco editor, an interactive Windows ConPTY terminal, JavaScript/Python/C# workflows, and a lightweight 3D scene editor.
 
 ## Current features
 
 - First-launch wizard for studio name, theme, accent, and default project folder. Settings persist in the user's AppData folder.
-- WPF workspace with project-folder browsing, open/create/save file actions, a Monaco editor tab, a native ConPTY terminal tab, a HelixToolkit 3D viewport, and exactly three language integrations.
-- Real PowerShell or cmd.exe sessions. The legacy redirected shell remains available, and the new native terminal tab uses the Windows Terminal ConPTY control for interactive console applications, VT/ANSI rendering and terminal resizing. Commands run as the current Windows user.
-- Run JavaScript files with Node.js, Python files with Python, and C# projects with dotnet run. Build searches the opened project root for a solution or project file.
-- Exactly three language integration toggles: JavaScript, Python, and C#.
-- Interactive HelixToolkit 3D viewport with orbit/pan/zoom camera controls, grid, coordinate axes, view cube, cube/sphere/cylinder/cone/plane/torus primitives, numeric transforms, duplicate/delete, JSON scene save/load, and OBJ/ASCII STL export.
-- PowerShell setup/build/run scripts and a Windows GitHub Actions workflow that builds and uploads a self-contained x64 publish artifact.
+- Project explorer with open/create/save actions and keyboard shortcuts.
+- Monaco editor with JavaScript/TypeScript's built-in TypeScript language service, plus language-aware Python and C# completions, hover documentation, signature help, symbol outline and in-document definition navigation.
+- Python and Node.js interactive command-line debugging: Python uses `pdb`; JavaScript uses Node's `node inspect` CLI debugger. Debug sessions run in the ConPTY terminal.
+- Build and run commands for JavaScript, Python, and .NET projects. Process output and exit codes are streamed into the workspace terminal.
+- Real PowerShell or cmd.exe sessions through the Windows Terminal ConPTY control. Commands run as the current Windows user.
+- Interactive HelixToolkit 3D viewport with orbit/pan/zoom, grid, axes, view cube, cube/sphere/cylinder/cone/plane/torus primitives, object transforms, duplicate/delete, JSON scene persistence, and OBJ/ASCII STL export.
+- PowerShell setup/build/run scripts.
+- GitHub Actions CI on pushes and pull requests, plus a tagged-release workflow that creates a self-contained Windows x64 publish and attaches the executable and portable ZIP to a GitHub Release.
 
 ## Requirements
 
 - Windows 10 or Windows 11.
 - .NET 10 SDK for local building.
-- Node.js for JavaScript execution.
-- Python for Python execution.
-- .NET 10 SDK for C# project build/run.
+- Microsoft Edge WebView2 Runtime for Monaco (normally present on current Windows installations).
+- Node.js for JavaScript execution and Python for Python execution.
+- The .NET 10 SDK for C# project build/run.
 
 ## Build from source
 
-Open PowerShell in the repository directory and run:
+Open PowerShell in the repository directory:
 
-    Set-ExecutionPolicy -Scope Process Bypass
-    .\setup.ps1
-    .\build.ps1
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
+.\build.ps1
+```
 
-Publish a self-contained x64 build:
+Publish a self-contained x64 build locally:
 
-    .\build.ps1 -Publish -SelfContained
+```powershell
+.\build.ps1 -Publish -SelfContained
+```
 
-The published executable is written to artifacts\Studio\Studio.exe.
+The executable is written to `artifacts\Studio\Studio.exe`.
 
-Run the project with:
+## GitHub Releases
 
-    .\run.ps1
+The release workflow runs when a version tag beginning with `v` is pushed. It restores, builds, publishes a self-contained single-file Windows x64 application, creates a portable ZIP and SHA-256 checksum, then attaches all release files to the GitHub Release.
 
-Or double-click start.bat.
+Create a release from PowerShell:
 
-A GitHub Actions workflow also runs on pushes and pull requests to main. Successful push/manual runs upload an artifact named Studio.exe-win-x64.
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
 
-## Current limitations
+The release contains:
+- `Studio.exe` — the self-contained Windows x64 executable.
+- `Studio-win-x64.zip` — the portable publish folder (includes required sidecar assets).
+- `SHA256SUMS.txt` — checksum for the executable.
 
-This is a practical first implementation, and several advanced items from the full prompt are not implemented yet:
+A normal push to `main` or a pull request runs CI. A successful non-PR CI run also uploads the publish folder as a short-lived workflow artifact.
 
-- Monaco is available in its own editor tab and currently loads its editor engine from jsDelivr, so internet access is required. JavaScript/TypeScript uses Monaco's built-in TypeScript language service; Python and C# currently have syntax modes and a small set of snippet completions, not full Pyright/Roslyn language-server IntelliSense. The WPF text editor remains as an offline fallback. The Monaco tab is an early integration and not yet fully synchronized for every editor workflow.
-- The native terminal uses the third-party EasyWindowsTerminalControl wrapper around Microsoft's Windows Terminal ConPTY backend. Its WPF host uses a native HWND, so WPF overlays cannot be rendered over the terminal surface. The original redirected shell is still present as a fallback.
-- The three language cards enable/disable integrations, but are not a downloadable extension marketplace. Runtime and SDK detection is basic and errors are reported by the launched process.
-- Source-level debugging (DAP adapters, breakpoints, variable inspection and stepping), Python/Pyright and C#/Roslyn language-server integration, mesh sculpting/edit mode, material node editor, animation timeline, GLB/glTF export, Git UI, project templates, global search and tab restoration are not implemented yet. Use the integrated shell for Git and package-manager commands.
-- 3D currently supports cube and sphere primitives, simple transforms, JSON scene persistence, and OBJ/ASCII STL export. It does not yet provide orbit/pan/zoom controls, mesh editing, materials UI, lights UI, timeline/animation, GLB/glTF export, or custom mesh import.
+## Important limitations
 
-Only features implemented in this repository are advertised as available. The remaining items can be added incrementally without replacing the working base.
+This repository contains a functional early-stage IDE foundation, not a complete Visual Studio/Blender replacement:
+
+- Monaco's JavaScript/TypeScript support uses its built-in TypeScript service. Python and C# have richer local/context-aware completion, hover, signatures, symbols and local definition navigation, but do **not** yet run full Pyright/Roslyn language servers. Monaco is currently loaded from jsDelivr, so its editor engine requires internet access.
+- Python and Node debugging use their interactive command-line debuggers (`pdb` and `node inspect`). A full Debug Adapter Protocol (DAP) UI with graphical breakpoints, call stack, locals/watch and stepping is not implemented. C# source-level debugging is not wired into the IDE.
+- The terminal is hosted by EasyWindowsTerminalControl around Microsoft's ConPTY backend. Its native HWND surface has WPF airspace limitations.
+- Language integrations are built-in and do not include an extension marketplace or automatic runtime downloads.
+- The 3D editor is a primitive-based scene editor. It supports transform editing, scene save/load and OBJ/ASCII STL export, but not Blender-grade sculpting, arbitrary topology editing, node materials, rigging, animation, or GLB/glTF export.
+- Git operations remain available through the shell; there is no dedicated Git UI yet.
 
 ## Repository structure
 
-    Studio.sln
-    src/Studio.App/
-      App.xaml
-      MainWindow.xaml
-      MainWindow.xaml.cs
-      Models/
-      Services/
-    setup.ps1
-    build.ps1
-    run.ps1
-    start.bat
-    .github/workflows/build.yml
+```text
+Studio.sln
+src/Studio.App/
+  App.xaml
+  MainWindow.xaml
+  MainWindow.xaml.cs
+  Assets/monaco.html
+  Models/
+  Services/
+.github/workflows/
+  build.yml
+  release.yml
+setup.ps1
+build.ps1
+run.ps1
+start.bat
+```
 
 ## Safety
 
-The app does not require administrator rights. It does not silently download runtimes or run setup scripts. File changes are made only after explicit user actions. Shell commands are sent to the user's selected local shell session and run with the current account's permissions.
+The app does not require administrator rights. Setup scripts check the local SDK and do not silently install runtimes. Files are changed only after explicit user actions. Shell and debugger commands run under the current Windows account.
