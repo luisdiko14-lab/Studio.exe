@@ -4,6 +4,9 @@
         xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
         xmlns:helix="http://helix-toolkit.org/wpf"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
+        xmlns:helix="http://helix-toolkit.org/wpf"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Studio.exe" Width="1440" Height="900" MinWidth="1040" MinHeight="680"
         WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}" Loaded="Window_Loaded" Closing="Window_Closing"
@@ -187,6 +190,7 @@
           </TabItem>
 
 
+          <TabItem Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
           <TabItem Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
           <TabItem x:Name="ExtensionsTab" Header="Extensions">
             <ScrollViewer Background="#171A21" VerticalScrollBarVisibility="Auto">
