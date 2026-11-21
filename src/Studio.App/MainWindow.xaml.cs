@@ -1547,18 +1547,162 @@ public partial class MainWindow : Window
 
     private void ImportMesh_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "3D mesh files (*.obj;*.stl)|*.obj;*.stl|Wavefront OBJ (*.obj)|*.obj|STL (*.stl)|*.stl" };
+        var dialog = new OpenFileDialog { Filter = "3D mesh files (*.obj;*.stl;*.glb)|*.obj;*.stl;*.glb|Wavefront OBJ (*.obj)|*.obj|STL (*.stl)|*.stl|Binary glTF (*.glb)|*.glb" };
         if (dialog.ShowDialog() != true) return;
         try
         {
             var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
-            var mesh = extension == ".obj" ? ImportObj(dialog.FileName) : ImportStl(dialog.FileName);
+            var mesh = extension switch { ".obj" => ImportObj(dialog.FileName), ".stl" => ImportStl(dialog.FileName), ".glb" => ImportGlb(dialog.FileName), _ => throw new InvalidDataException("Unsupported mesh format.") };
             if (mesh.Positions.Count == 0 || mesh.TriangleIndices.Count < 3)
                 throw new InvalidDataException("The selected file did not contain any triangle mesh geometry.");
             AddSceneObjectFromMesh(Path.GetFileNameWithoutExtension(dialog.FileName), mesh);
             StatusText.Text = $"Imported {Path.GetFileName(dialog.FileName)} · {mesh.Positions.Count} vertices / {mesh.TriangleIndices.Count / 3} triangles";
         }
         catch (Exception ex) { MessageBox.Show($"Could not import mesh:\n{ex.Message}", "3D import failed"); }
+    }
+
+    private static MeshGeometry3D ImportGlb(string path)
+    {
+        var data = File.ReadAllBytes(path);
+        if (data.Length < 20 || BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(0, 4)) != 0x46546C67)
+            throw new InvalidDataException("The selected file is not a valid binary glTF (GLB) file.");
+        var version = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(4, 4));
+        var declaredLength = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(8, 4));
+        if (version != 2 || declaredLength != data.Length)
+            throw new InvalidDataException("Only version 2 GLB files with a valid declared length are supported.");
+
+        JsonDocument? jsonDocument = null;
+        byte[]? binaryChunk = null;
+        var cursor = 12;
+        while (cursor + 8 <= data.Length)
+        {
+            var chunkLength = checked((int)BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(cursor, 4)));
+            var chunkType = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(cursor + 4, 4));
+            cursor += 8;
+            if (chunkLength < 0 || cursor + chunkLength > data.Length)
+                throw new InvalidDataException("GLB contains an invalid chunk length.");
+            if (chunkType == 0x4E4F534A)
+                jsonDocument = JsonDocument.Parse(data.AsMemory(cursor, chunkLength));
+            else if (chunkType == 0x004E4942)
+                binaryChunk = data.AsSpan(cursor, chunkLength).ToArray();
+            cursor += chunkLength;
+        }
+
+        using (jsonDocument)
+        {
+            if (jsonDocument is null || binaryChunk is null)
+                throw new InvalidDataException("GLB must contain JSON and an embedded binary chunk.");
+            var root = jsonDocument.RootElement;
+            if (!root.TryGetProperty("bufferViews", out var views) ||
+                !root.TryGetProperty("accessors", out var accessors) ||
+                !root.TryGetProperty("meshes", out var meshes))
+                throw new InvalidDataException("GLB is missing mesh buffer metadata.");
+
+            var result = new MeshGeometry3D();
+            foreach (var mesh in meshes.EnumerateArray())
+            {
+                if (!mesh.TryGetProperty("primitives", out var primitives)) continue;
+                foreach (var primitive in primitives.EnumerateArray())
+                {
+                    if (!primitive.TryGetProperty("attributes", out var attributes) ||
+                        !attributes.TryGetProperty("POSITION", out var positionAccessorElement))
+                        continue;
+                    var positionAccessor = accessors[positionAccessorElement.GetInt32()];
+                    if (positionAccessor.GetProperty("componentType").GetInt32() != 5126 ||
+                        positionAccessor.GetProperty("type").GetString() != "VEC3")
+                        throw new InvalidDataException("GLB POSITION accessor must contain float VEC3 values.");
+
+                    var localPositions = ReadGlbFloat3Accessor(positionAccessor, views, binaryChunk);
+                    var baseIndex = result.Positions.Count;
+                    foreach (var point in localPositions) result.Positions.Add(point);
+
+                    if (primitive.TryGetProperty("indices", out var indexAccessorElement))
+                    {
+                        var indexAccessor = accessors[indexAccessorElement.GetInt32()];
+                        var values = ReadGlbIndexAccessor(indexAccessor, views, binaryChunk);
+                        if (values.Count % 3 != 0) throw new InvalidDataException("GLB primitive index count is not divisible by three.");
+                        foreach (var index in values)
+                        {
+                            if (index < 0 || index >= localPositions.Count)
+                                throw new InvalidDataException("GLB contains a triangle index outside its POSITION accessor.");
+                            result.TriangleIndices.Add(baseIndex + index);
+                        }
+                    }
+                    else
+                    {
+                        if (localPositions.Count % 3 != 0)
+                            throw new InvalidDataException("Non-indexed GLB triangle data must contain a multiple of three vertices.");
+                        for (var i = 0; i < localPositions.Count; i++) result.TriangleIndices.Add(baseIndex + i);
+                    }
+                }
+            }
+            if (result.Positions.Count == 0 || result.TriangleIndices.Count < 3)
+                throw new InvalidDataException("GLB contains no triangle geometry.");
+            return result;
+        }
+    }
+
+    private static List<Point3D> ReadGlbFloat3Accessor(JsonElement accessor, JsonElement views, byte[] binary)
+    {
+        var viewIndex = accessor.GetProperty("bufferView").GetInt32();
+        var view = views[viewIndex];
+        if (view.TryGetProperty("buffer", out var bufferIndex) && bufferIndex.GetInt32() != 0)
+            throw new InvalidDataException("External GLB buffers are not supported.");
+        var offset = view.TryGetProperty("byteOffset", out var viewOffset) ? viewOffset.GetInt32() : 0;
+        offset += accessor.TryGetProperty("byteOffset", out var accessorOffset) ? accessorOffset.GetInt32() : 0;
+        var stride = view.TryGetProperty("byteStride", out var strideElement) ? strideElement.GetInt32() : 12;
+        var count = accessor.GetProperty("count").GetInt32();
+        var byteLength = view.GetProperty("byteLength").GetInt32();
+        if (count < 0 || count > 10_000_000 || stride < 12 || offset < 0 ||
+            (long)offset + (long)Math.Max(0, count - 1) * stride + 12 > binary.Length ||
+            offset + byteLength > binary.Length)
+            throw new InvalidDataException("GLB POSITION accessor has invalid bounds.");
+
+        var positions = new List<Point3D>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var start = offset + i * stride;
+            var x = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(binary.AsSpan(start, 4)));
+            var y = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(binary.AsSpan(start + 4, 4)));
+            var z = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(binary.AsSpan(start + 8, 4)));
+            if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(z))
+                throw new InvalidDataException("GLB contains a non-finite vertex coordinate.");
+            positions.Add(new Point3D(x, y, z));
+        }
+        return positions;
+    }
+
+    private static List<int> ReadGlbIndexAccessor(JsonElement accessor, JsonElement views, byte[] binary)
+    {
+        if (accessor.GetProperty("type").GetString() != "SCALAR")
+            throw new InvalidDataException("GLB indices accessor must be SCALAR.");
+        var componentType = accessor.GetProperty("componentType").GetInt32();
+        var componentSize = componentType switch { 5121 => 1, 5123 => 2, 5125 => 4, _ => throw new InvalidDataException("GLB indices must use unsigned byte, short, or int.") };
+        var view = views[accessor.GetProperty("bufferView").GetInt32()];
+        if (view.TryGetProperty("buffer", out var bufferIndex) && bufferIndex.GetInt32() != 0)
+            throw new InvalidDataException("External GLB buffers are not supported.");
+        var offset = (view.TryGetProperty("byteOffset", out var viewOffset) ? viewOffset.GetInt32() : 0) +
+            (accessor.TryGetProperty("byteOffset", out var accessorOffset) ? accessorOffset.GetInt32() : 0);
+        var count = accessor.GetProperty("count").GetInt32();
+        var byteLength = view.GetProperty("byteLength").GetInt32();
+        if (count < 0 || count > 30_000_000 || offset < 0 ||
+            (long)offset + (long)count * componentSize > binary.Length || offset + byteLength > binary.Length)
+            throw new InvalidDataException("GLB index accessor has invalid bounds.");
+
+        var values = new List<int>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var start = offset + i * componentSize;
+            var value = componentType switch
+            {
+                5121 => binary[start],
+                5123 => BinaryPrimitives.ReadUInt16LittleEndian(binary.AsSpan(start, 2)),
+                5125 => checked((int)BinaryPrimitives.ReadUInt32LittleEndian(binary.AsSpan(start, 4))),
+                _ => 0
+            };
+            values.Add(value);
+        }
+        return values;
     }
 
     private static MeshGeometry3D ImportObj(string path)
