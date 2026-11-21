@@ -1171,14 +1171,16 @@ public partial class MainWindow : Window
     {
         var source = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
         if (source is null) return;
-        var mesh = CreatePrimitiveMesh(source.Shape);
-        var material = CreateMaterial(source.ColorHex);
+        var mesh = new MeshGeometry3D { Positions = new Point3DCollection(source.Mesh.Positions), TriangleIndices = new Int32Collection(source.Mesh.TriangleIndices) };
+        var material = CreateMaterial(source.ColorHex, source.Opacity, source.SpecularPower);
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var copy = new SceneObject
         {
             Name = source.Name + " Copy", Shape = source.Shape, Mesh = mesh, Model = model,
             X = source.X + 1, Y = source.Y, Z = source.Z, ScaleX = source.ScaleX, ScaleY = source.ScaleY,
-            ScaleZ = source.ScaleZ, RotationX = source.RotationX, RotationY = source.RotationY, RotationZ = source.RotationZ, ColorHex = source.ColorHex
+            ScaleZ = source.ScaleZ, RotationX = source.RotationX, RotationY = source.RotationY, RotationZ = source.RotationZ,
+            ColorHex = source.ColorHex, SpecularPower = source.SpecularPower, Opacity = source.Opacity,
+            Keyframes = source.Keyframes.Select(k => k.Clone()).ToList()
         };
         UpdateObjectTransform(copy); _scene.Add(copy); _world.Children.Add(model); RefreshSceneList(copy.Name);
     }
