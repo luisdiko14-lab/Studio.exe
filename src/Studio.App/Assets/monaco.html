@@ -62,26 +62,46 @@ require(["vs/editor/editor.main"],function(){
     }
     settingValue=true;
     const parsedUri=monaco.Uri.parse(nextUri);
-    const model=editor.getModel();
-    if(!model || model.uri.toString()!==parsedUri.toString()){
-      const nextModel=monaco.editor.createModel(value,language||"plaintext",parsedUri);
-      editor.setModel(nextModel);
-      if(model) model.dispose();
+    const activeModel=editor.getModel();
+    let nextModel=monaco.editor.getModel(parsedUri);
+    if(!nextModel){
+      nextModel=monaco.editor.createModel(value,language||"plaintext",parsedUri);
     }else{
-      model.setValue(value);
-      monaco.editor.setModelLanguage(model,language||"plaintext");
+      monaco.editor.setModelLanguage(nextModel,language||"plaintext");
+      if(nextModel===activeModel && nextModel.getValue()!==value) nextModel.setValue(value);
     }
+    if(activeModel!==nextModel) editor.setModel(nextModel);
+
     currentDocumentUri=nextUri; currentLanguage=language||"plaintext"; documentVersion++;
+    const actualText=nextModel.getValue();
     if(lsp.ready && lsp.uri!==nextUri){
       lsp.uri=nextUri;
-      lspNotify("textDocument/didOpen",{textDocument:{uri:nextUri,languageId:currentLanguage,version:documentVersion,text:value}});
+      lspNotify("textDocument/didOpen",{textDocument:{uri:nextUri,languageId:currentLanguage,version:documentVersion,text:actualText}});
     }else if(lsp.ready){
       lsp.uri=nextUri;
-      lspNotify("textDocument/didChange",{textDocument:{uri:nextUri,version:documentVersion},contentChanges:[{text:value}]});
+      lspNotify("textDocument/didChange",{textDocument:{uri:nextUri,version:documentVersion},contentChanges:[{text:actualText}]});
     }
+    window.chrome.webview.postMessage({type:"text",text:actualText});
     setTimeout(()=>{settingValue=false;},0);
   };
-  window.studioSetValue=window.studioSetDocument;
+  window.studioCloseDocument=function(uri){
+    if(!uri)return;
+    if(lsp.ready && lsp.uri===uri){
+      lspNotify("textDocument/didClose",{textDocument:{uri}});
+      lsp.uri=null;
+    }
+    const model=monaco.editor.getModel(monaco.Uri.parse(uri));
+    if(!model)return;
+    if(editor.getModel()===model){
+      const blankUri=monaco.Uri.parse("untitled:studio-new-file");
+      let blank=monaco.editor.getModel(blankUri);
+      if(!blank)blank=monaco.editor.createModel("", "plaintext", blankUri);
+      editor.setModel(blank);
+    }
+    monaco.editor.setModelMarkers(model,"studio-diagnostics",[]);
+    monaco.editor.setModelMarkers(model,"language-server",[]);
+    model.dispose();
+  };  window.studioSetValue=window.studioSetDocument;
   window.studioSetDiagnostics=function(items){
     const model=editor.getModel(); if(!model)return;
     const markers=(items||[]).map(d=>({
