@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -829,14 +830,18 @@ public partial class MainWindow : Window
             }
         return new MeshGeometry3D { Positions = positions, TriangleIndices = triangles };
     }
-    private static Material CreateMaterial(string colorHex)
+    private static Material CreateMaterial(string colorHex, double opacity = 1, double specularPower = 24)
     {
         var color = (Color)(ColorConverter.ConvertFromString(colorHex) ?? Colors.SlateGray);
-        return new DiffuseMaterial(new SolidColorBrush(color));
+        color.A = (byte)Math.Clamp((int)Math.Round(color.A * Math.Clamp(opacity, 0, 1)), 0, 255);
+        var group = new MaterialGroup();
+        group.Children.Add(new DiffuseMaterial(new SolidColorBrush(color)));
+        group.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(225, 232, 255)), Math.Clamp(specularPower, 1, 128)));
+        return group;
     }
     private static void UpdateObjectMaterial(SceneObject item)
     {
-        var material = CreateMaterial(item.ColorHex);
+        var material = CreateMaterial(item.ColorHex, item.Opacity, item.SpecularPower);
         item.Model.Material = material;
         item.Model.BackMaterial = material;
     }
@@ -873,6 +878,9 @@ public partial class MainWindow : Window
         RotationY.Text = item.RotationY.ToString(CultureInfo.InvariantCulture);
         RotationZ.Text = item.RotationZ.ToString(CultureInfo.InvariantCulture);
         ObjectColor.Text = item.ColorHex;
+        SpecularPowerInput.Text = item.SpecularPower.ToString(CultureInfo.InvariantCulture);
+        OpacityInput.Text = item.Opacity.ToString(CultureInfo.InvariantCulture);
+        RefreshVertexRows(item);
     }
     private void ApplyTransform_Click(object sender, RoutedEventArgs e)
     {
@@ -888,7 +896,12 @@ public partial class MainWindow : Window
         }
         item.Name = string.IsNullOrWhiteSpace(ObjectNameInput.Text) ? item.Name : ObjectNameInput.Text.Trim();
         item.X = x; item.Y = y; item.Z = z; item.ScaleX = sx; item.ScaleY = sy; item.ScaleZ = sz;
+        if (!TryNumber(SpecularPowerInput.Text, out var specularPower) || !TryNumber(OpacityInput.Text, out var opacity))
+        {
+            MessageBox.Show("Enter a valid specular value and opacity between 0 and 1.", "Invalid material"); return;
+        }
         item.RotationX = rotationX; item.RotationY = rotationY; item.RotationZ = rotationZ; item.ColorHex = color.ToString();
+        item.SpecularPower = Math.Clamp(specularPower, 1, 128); item.Opacity = Math.Clamp(opacity, 0, 1);
         UpdateObjectTransform(item); UpdateObjectMaterial(item); RefreshSceneList(item.Name);
     }
     private static bool TryNumber(string text, out double value) =>
