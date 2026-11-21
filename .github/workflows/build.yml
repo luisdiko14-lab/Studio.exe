@@ -16,17 +16,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install Node.js for bundled Monaco assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and vendor Monaco editor
+        shell: pwsh
+        run: |
+          npm install --no-save --no-package-lock monaco-editor@0.52.2
+          if ($LASTEXITCODE -ne 0) { throw "Monaco npm install failed with exit code $LASTEXITCODE" }
+          node scripts/prepare-monaco.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Monaco asset preparation failed with exit code $LASTEXITCODE" }
+
       - name: Install .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
       - name: Restore
         run: dotnet restore Studio.sln
+
       - name: Build
         run: dotnet build Studio.sln --configuration Release --no-restore
+
       - name: Publish self-contained Windows x64 app
         if: github.event_name != 'pull_request'
-        run: dotnet publish src/Studio.App/Studio.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output artifacts/Studio
+        shell: pwsh
+        run: |
+          dotnet publish src/Studio.App/Studio.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output artifacts/Studio
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Studio.exe was not produced" }
+          if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco editor assets were not published" }
+
       - name: Upload Windows build
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
