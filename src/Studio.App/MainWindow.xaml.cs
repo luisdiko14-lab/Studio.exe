@@ -550,6 +550,7 @@ public partial class MainWindow : Window
         try
         {
             await MonacoEditor.EnsureCoreWebView2Async();
+            var editorReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             MonacoEditor.CoreWebView2.WebMessageReceived += (_, e) =>
             {
                 try
@@ -574,6 +575,7 @@ public partial class MainWindow : Window
                     {
                         if (_debugAdapter is { IsRunning: true }) _ = SendProtocolMessageAsync(_debugAdapter, dapPayload.GetRawText(), "Debug adapter");
                     }
+                    else if (type == "editorReady") editorReady.TrySetResult(true);
                     else if (type == "editorStatus" && message.TryGetProperty("text", out var status))
                         Dispatcher.BeginInvoke(() => StatusText.Text = status.GetString() ?? "Editor ready");
                 }
@@ -591,6 +593,7 @@ public partial class MainWindow : Window
             MonacoEditor.CoreWebView2.NavigationCompleted += (_, args) => navigation.TrySetResult(args.IsSuccess);
             MonacoEditor.Navigate("https://studio.local/monaco.html");
             if (!await navigation.Task.WaitAsync(TimeSpan.FromSeconds(30))) throw new InvalidOperationException("Monaco page failed to load.");
+            await editorReady.Task.WaitAsync(TimeSpan.FromSeconds(60));
             _monacoReady = true;
             await SetMonacoTextAsync(_monacoText, _currentFile);
         }
