@@ -98,6 +98,7 @@
             <MenuItem Header="Run Current File" Click="Run_Click"/>
             <MenuItem Header="Build Project" Click="Build_Click"/>
             <MenuItem Header="Debug Current File" Click="Debug_Click"/>
+            <MenuItem Header="Check Syntax / Diagnostics" Click="CheckSyntax_Click"/>
             <MenuItem Header="Stop" Click="Stop_Click"/>
           </MenuItem>
           <MenuItem Header="_Help"><MenuItem Header="About Studio.exe" Click="About_Click"/></MenuItem>
@@ -107,6 +108,7 @@
           <Button Content="Run ▶" Click="Run_Click" Background="#536BD6"/>
           <Button Content="Build" Click="Build_Click"/>
           <Button Content="Debug" Click="Debug_Click"/>
+          <Button Content="Check" Click="CheckSyntax_Click"/>
           <Button Content="Stop ■" Click="Stop_Click"/>
         </StackPanel>
       </DockPanel>
