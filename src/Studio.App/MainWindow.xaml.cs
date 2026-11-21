@@ -36,7 +36,7 @@ public partial class MainWindow : Window
     private string? _languageServerId, _documentUri;
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
-    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;
+    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady, _wpfEditorChanged;
     private string _monacoText = string.Empty;
     private Process? _runProcess;
     private Model3DGroup _world = new();
@@ -264,6 +264,7 @@ public partial class MainWindow : Window
         _monacoText = document.Content;
         _isLoadingEditor = true;
         EditorText.Text = document.Content;
+        _wpfEditorChanged = false;
         _isLoadingEditor = false;
         CurrentFileText.Text = document.DisplayName;
         ProjectStatusText.Text = _projectRoot ?? _currentDirectory ?? "No project open";
@@ -294,30 +295,36 @@ public partial class MainWindow : Window
         }
         var uri = new Uri(Path.GetFullPath(document.FilePath)).AbsoluteUri;
         if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioCloseDocument(" + JsonSerializer.Serialize(uri) + ");");
+
         var index = _openDocuments.IndexOf(document);
+        _suppressDocumentSelection = true;
         _openDocuments.Remove(document);
+        OpenDocumentsList.SelectedItem = null;
         _currentDocument = null;
         _currentFile = null;
         _isDirty = false;
         if (_openDocuments.Count > 0)
         {
-            OpenDocumentsList.SelectedItem = _openDocuments[Math.Clamp(index, 0, _openDocuments.Count - 1)];
+            var next = _openDocuments[Math.Clamp(index, 0, _openDocuments.Count - 1)];
+            OpenDocumentsList.SelectedItem = next;
+            _suppressDocumentSelection = false;
+            await ActivateDocumentAsync(next);
         }
         else
         {
-            _suppressDocumentSelection = true;
-            OpenDocumentsList.SelectedItem = null;
-            _suppressDocumentSelection = false;
             _monacoText = string.Empty;
             _isLoadingEditor = true; EditorText.Clear(); _isLoadingEditor = false;
+            _wpfEditorChanged = false;
             CurrentFileText.Text = "No file open";
             StatusText.Text = "All documents closed";
+            _suppressDocumentSelection = false;
         }
     }
 
     private void EditorText_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_isLoadingEditor) return;
+        _wpfEditorChanged = true;
         _isDirty = _currentFile is not null;
         if (_currentDocument is not null)
         {
@@ -997,7 +1004,13 @@ public partial class MainWindow : Window
     private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
     {
         if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It is bundled locally and does not require internet access.", "Monaco Editor"); return; }
-        if (WorkspaceTabs.SelectedItem == EditorTab) _monacoText = EditorText.Text;
+        if (WorkspaceTabs.SelectedItem == EditorTab && _wpfEditorChanged)
+            _monacoText = EditorText.Text;
+        else if (_currentDocument is not null)
+            _monacoText = _currentDocument.Content;
+        else
+            _monacoText = EditorText.Text;
+        _wpfEditorChanged = false;
         await SetMonacoTextAsync(_monacoText, _currentFile);
         WorkspaceTabs.SelectedItem = MonacoTab;
     }
@@ -1011,6 +1024,7 @@ public partial class MainWindow : Window
         CaptureActiveDocument();
         _isLoadingEditor = true;
         EditorText.Text = _currentDocument?.Content ?? _monacoText;
+        _wpfEditorChanged = false;
         _isLoadingEditor = false;
         WorkspaceTabs.SelectedItem = EditorTab;
     }
