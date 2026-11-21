@@ -170,6 +170,8 @@ public partial class MainWindow : Window
         }
         catch (UnauthorizedAccessException) { StatusText.Text = "This folder cannot be read with current permissions."; }
         catch (Exception ex) { StatusText.Text = $"Explorer error: {ex.Message}"; }
+        ExplorerList.ItemsSource = null;
+        ExplorerList.ItemsSource = _explorerEntries;
     }
     private void RefreshExplorer_Click(object sender, RoutedEventArgs e) => RefreshExplorer();
     private void ExplorerList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -459,6 +461,8 @@ public partial class MainWindow : Window
     private void RefreshSceneList(string? selectedName = null)
     {
         _sceneNames.Clear(); foreach (var item in _scene) _sceneNames.Add(item.Name);
+        SceneList.ItemsSource = null;
+        SceneList.ItemsSource = _sceneNames;
         if (selectedName is not null) SceneList.SelectedItem = selectedName;
         else if (_scene.Count > 0) SceneList.SelectedIndex = _scene.Count - 1;
     }
