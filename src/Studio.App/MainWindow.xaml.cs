@@ -24,7 +24,8 @@ public partial class MainWindow : Window
     private readonly List<SceneObject> _scene = [];
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
-    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;\n    private string _monacoText = string.Empty;
+    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;
+    private string _monacoText = string.Empty;
     private Process? _runProcess;
     private Model3DGroup _world = new();
 
@@ -47,7 +48,7 @@ public partial class MainWindow : Window
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        if (_settings.SetupCompleted) StartTerminal("PowerShell");
+        if (_settings.SetupCompleted) { StartTerminal("PowerShell"); _ = InitializeMonacoAsync(); }
         else StudioNameInput.Focus();
     }
 
@@ -130,7 +131,7 @@ public partial class MainWindow : Window
         _settings.SetupCompleted = true;
         PersistSettings(); ApplyBranding();
         WizardRoot.Visibility = Visibility.Collapsed; WorkspaceRoot.Visibility = Visibility.Visible;
-        InitializeViewport(); StartTerminal("PowerShell"); StatusText.Text = "Studio ready";
+        InitializeViewport(); StartTerminal("PowerShell"); _ = InitializeMonacoAsync(); StatusText.Text = "Studio ready";
     }
     private void PersistSettings()
     {
@@ -244,7 +245,8 @@ public partial class MainWindow : Window
         if (_currentFile is null) { SaveAs_Click(this, new RoutedEventArgs()); return !_isDirty; }
         try
         {
-            var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;\n            File.WriteAllText(_currentFile, content, new UTF8Encoding(false));
+            var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;
+            File.WriteAllText(_currentFile, content, new UTF8Encoding(false));
             _isDirty = false; CurrentFileText.Text = Path.GetFileName(_currentFile);
             StatusText.Text = "File saved"; RefreshExplorer(); return true;
         }
@@ -326,6 +328,33 @@ public partial class MainWindow : Window
         }
         StartToolProcess(info, "Run");
     }
+    private void Debug_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentFile is null)
+        {
+            MessageBox.Show("Open a Python or JavaScript file before starting the debugger.", "No debug target");
+            return;
+        }
+        if (_isDirty && !SaveCurrentFile()) return;
+        var extension = Path.GetExtension(_currentFile).ToLowerInvariant();
+        var file = _currentFile.Replace("'", "''");
+        var directory = (Path.GetDirectoryName(_currentFile) ?? Environment.CurrentDirectory).Replace("'", "''");
+        string command;
+        if (extension == ".py")
+            command = $"Set-Location -LiteralPath '{directory}'; python -m pdb '{file}'";
+        else if (extension is ".js" or ".mjs" or ".cjs")
+            command = $"Set-Location -LiteralPath '{directory}'; node inspect '{file}'";
+        else
+        {
+            MessageBox.Show("Interactive debugging is currently available for Python (pdb) and Node.js (node inspect). C# builds can be run with the Build command.", "Debugger support");
+            return;
+        }
+        ConPtyTerminal.StartupCommandLine = "pwsh.exe -NoExit -Command \"" + command.Replace("\"", "\\\"") + "\"";
+        ConPtyTerminal.RestartTerm();
+        WorkspaceTabs.SelectedItem = TerminalTab;
+        StatusText.Text = extension == ".py" ? "Python debugger started · use pdb commands: n, s, c, p, b, q" : "Node debugger started · use node inspector commands: cont, next, step, repl, list, quit";
+    }
+
     private void Build_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(_projectRoot))
@@ -384,12 +413,16 @@ public partial class MainWindow : Window
             await MonacoEditor.EnsureCoreWebView2Async();
             MonacoEditor.CoreWebView2.WebMessageReceived += (_, e) =>
             {
-                try { var message = JsonDocument.Parse(e.WebMessageAsJson).RootElement; if (message.TryGetProperty("text", out var value)) _monacoText = value.GetString() ?? string.Empty; } catch { }
+                try { var message = JsonDocument.Parse(e.WebMessageAsJson).RootElement; if (message.TryGetProperty("text", out var value)) { _monacoText = value.GetString() ?? string.Empty; _isDirty = _currentFile is not null; if (_isDirty) CurrentFileText.Text = $"{Path.GetFileName(_currentFile)} •"; } } catch { }
             };
             var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "monaco.html");
             if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco web assets were not published.", htmlPath);
+            var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            MonacoEditor.CoreWebView2.NavigationCompleted += (_, args) => navigation.TrySetResult(args.IsSuccess);
             MonacoEditor.NavigateToString(File.ReadAllText(htmlPath));
+            if (!await navigation.Task.WaitAsync(TimeSpan.FromSeconds(30))) throw new InvalidOperationException("Monaco page failed to load.");
             _monacoReady = true;
+            await SetMonacoTextAsync(_monacoText, _currentFile);
         }
         catch (Exception ex) { StatusText.Text = "Monaco initialization failed: " + ex.Message; }
     }
@@ -404,7 +437,7 @@ public partial class MainWindow : Window
     private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
     {
         if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It also requires internet access to load its editor engine.", "Monaco Editor"); return; }
-        _monacoText = EditorText.Text;
+        if (WorkspaceTabs.SelectedItem == EditorTab) _monacoText = EditorText.Text;
         await SetMonacoTextAsync(_monacoText, _currentFile);
         WorkspaceTabs.SelectedItem = MonacoTab;
     }
@@ -416,9 +449,6 @@ public partial class MainWindow : Window
     private void ShowEditor_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = EditorTab;
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
     private void ShowExtensions_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ExtensionsTab;
-    private void NativePowerShell_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "pwsh.exe"; ConPtyTerminal.RestartTerm(); }
-    private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
-    private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
     private void RefreshExtensionStatus()
     {
         JsStatus.Text = _settings.JavaScriptEnabled ? "Enabled" : "Disabled";
@@ -672,7 +702,7 @@ public partial class MainWindow : Window
 
     private void About_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show($"{Title}\nWindows development workspace for JavaScript, Python, C#, a real shell session, and a lightweight 3D scene editor.\n\nThis early build uses a basic text editor and redirected shell streams; see README for limitations.",
+        MessageBox.Show($"{Title}\nWindows development workspace for JavaScript, Python, C#, a real shell session, and a lightweight 3D scene editor.\n\nIncludes Monaco, contextual Python/C# IntelliSense, ConPTY, terminal debugging for Python/Node, and a lightweight 3D scene editor. See README for language-server and advanced modeling limits.",
             "About Studio.exe", MessageBoxButton.OK, MessageBoxImage.Information);
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
