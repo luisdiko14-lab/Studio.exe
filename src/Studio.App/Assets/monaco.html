@@ -166,7 +166,7 @@ require(["vs/editor/editor.main"],function(){
     if(lsp.ready && lsp.uri) lspNotify("textDocument/didClose",{textDocument:{uri:lsp.uri}});
     lsp.ready=false;lsp.uri=null;lsp.language=null;lsp.pending.forEach(x=>{clearTimeout(x.timer);x.resolve(null);});lsp.pending.clear();
   };
-  window.addEventListener("message",event=>{
+  window.chrome.webview.addEventListener("message",event=>{
     const packet=event.data;if(!packet||typeof packet!=="object")return;
     if(packet.type==="lspMessage"){
       const message=packet.payload;
@@ -491,6 +491,7 @@ require(["vs/editor/editor.main"],function(){
 
   monaco.editor.setTheme("vs-dark");
   window.addEventListener("resize",()=>editor.layout());
+  window.chrome.webview.postMessage({type:"editorReady"});
 });
 </script>
 </body>
