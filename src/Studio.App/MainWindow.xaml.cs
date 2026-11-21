@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -447,49 +448,154 @@ public partial class MainWindow : Window
         await MonacoEditor.ExecuteScriptAsync("window.studioSetDiagnostics(" + json + ");");
     }
 
-    private void Debug_Click(object sender, RoutedEventArgs e)
+    private async void Debug_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentFile is null) { MessageBox.Show("Open a Python or JavaScript file before starting the debugger.", "No debug target"); return; }
-        if (_isDirty && !SaveCurrentFile()) return;
-        var extension = Path.GetExtension(_currentFile).ToLowerInvariant();
-        if (extension != ".py")
+        if (_currentFile is null)
         {
-            if (extension is ".js" or ".mjs" or ".cjs")
-            {
-                var file = _currentFile.Replace("'", "''");
-                var directory = (Path.GetDirectoryName(_currentFile) ?? Environment.CurrentDirectory).Replace("'", "''");
-                ConPtyTerminal.StartupCommandLine = "pwsh.exe -NoExit -Command \"Set-Location -LiteralPath '" + directory + "'; node inspect '" + file + "'\"";
-                ConPtyTerminal.RestartTerm(); WorkspaceTabs.SelectedItem = TerminalTab;
-                StatusText.Text = "Node.js CLI debugger started · cont, next, step, out, repl, list, quit";
-                return;
-            }
-            MessageBox.Show("The graphical DAP debugger currently supports Python through debugpy. Node.js uses its interactive node inspect debugger.", "Debugger support");
+            MessageBox.Show("Open a Python, JavaScript, or C# project file before starting the debugger.", "No debug target");
             return;
         }
+        if (_isDirty && !SaveCurrentFile()) return;
+        if (!_monacoReady)
+        {
+            MessageBox.Show("The Monaco editor is still initializing. Try again once the editor tab is ready.", "Debugger");
+            return;
+        }
+
+        var extension = Path.GetExtension(_currentFile).ToLowerInvariant();
+        var workingDirectory = _projectRoot ?? Path.GetDirectoryName(_currentFile)!;
         try
         {
-            var python = FindTool("python.exe", "python");
-            if (python is null) throw new FileNotFoundException("Python was not found on PATH.");
-            _debugAdapter?.Dispose();
-            _debugAdapter = new StdioProtocolProcess(python, new[] { "-m", "debugpy.adapter" },
-                _projectRoot ?? Path.GetDirectoryName(_currentFile)!);
-            var adapter = _debugAdapter;
-            adapter.MessageReceived += json => PostProtocolMessage("dapMessage", json);
-            adapter.DiagnosticReceived += line => Dispatcher.BeginInvoke(() => AppendTerminal("[DAP] " + line));
-            adapter.Exited += () => Dispatcher.BeginInvoke(() =>
+            if (extension == ".py")
             {
-                if (ReferenceEquals(_debugAdapter, adapter)) _debugAdapter = null;
-                StatusText.Text = "Python debug adapter stopped";
-            });
-            var debugTarget = new { program = Path.GetFullPath(_currentFile), cwd = _projectRoot ?? Path.GetDirectoryName(_currentFile)!, python };
-            _ = MonacoEditor.ExecuteScriptAsync("window.studioStartDap(" + JsonSerializer.Serialize(debugTarget) + ");");
-            WorkspaceTabs.SelectedItem = MonacoTab;
-            StatusText.Text = "Starting Python DAP session…";
+                var python = FindTool("python.exe", "python");
+                if (python is null) throw new FileNotFoundException("Python was not found on PATH.");
+                var launch = new
+                {
+                    name = "Launch Python",
+                    type = "python",
+                    request = "launch",
+                    program = Path.GetFullPath(_currentFile),
+                    cwd = workingDirectory,
+                    python,
+                    console = "internalConsole",
+                    justMyCode = true,
+                    stopOnEntry = false,
+                    redirectOutput = true,
+                    subProcess = false
+                };
+                StartDebugAdapter(python, new[] { "-m", "debugpy.adapter" }, workingDirectory, "python", launch, "Python");
+                return;
+            }
+
+            if (extension is ".js" or ".mjs" or ".cjs" or ".ts" or ".tsx")
+            {
+                var node = FindTool("node.exe", "node");
+                var jsAdapter = FindTool("dapDebugServer.js");
+                if (node is null) throw new FileNotFoundException("Node.js was not found on PATH.");
+                if (jsAdapter is null) throw new FileNotFoundException("The Microsoft JavaScript DAP adapter is not installed. Use Extensions → Install / Update.");
+                var launch = new
+                {
+                    name = "Launch Node.js",
+                    type = "pwa-node",
+                    request = "launch",
+                    program = Path.GetFullPath(_currentFile),
+                    cwd = workingDirectory,
+                    runtimeExecutable = node,
+                    console = "internalConsole",
+                    skipFiles = new[] { "<node_internals>/**" },
+                    sourceMaps = true,
+                    smartStep = true
+                };
+                StartDebugAdapter(node, new[] { jsAdapter }, workingDirectory, "pwa-node", launch, "Node.js");
+                return;
+            }
+
+            if (extension is ".cs" or ".csproj" or ".sln")
+            {
+                var project = extension == ".csproj" ? _currentFile :
+                    Directory.EnumerateFiles(workingDirectory, "*.csproj", SearchOption.AllDirectories)
+                        .FirstOrDefault(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                                          && !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+                if (project is null) throw new FileNotFoundException("Could not find a C# project (.csproj) in the opened workspace.");
+
+                StatusText.Text = "Building C# project for debugging…";
+                var buildInfo = new ProcessStartInfo
+                {
+                    FileName = "dotnet", WorkingDirectory = Path.GetDirectoryName(project)!,
+                    UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
+                };
+                buildInfo.ArgumentList.Add("build");
+                buildInfo.ArgumentList.Add(project);
+                buildInfo.ArgumentList.Add("--configuration");
+                buildInfo.ArgumentList.Add("Debug");
+                using (var buildProcess = new Process { StartInfo = buildInfo })
+                {
+                    buildProcess.Start();
+                    var stdout = buildProcess.StandardOutput.ReadToEndAsync();
+                    var stderr = buildProcess.StandardError.ReadToEndAsync();
+                    await buildProcess.WaitForExitAsync();
+                    var buildOutput = await stdout;
+                    var buildError = await stderr;
+                    foreach (var line in (buildOutput + Environment.NewLine + buildError).Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                        AppendTerminal(line);
+                    if (buildProcess.ExitCode != 0) throw new InvalidOperationException("The C# Debug build failed. Fix the build errors shown in the terminal first.");
+                }
+
+                var projectDocument = XDocument.Load(project);
+                var assemblyName = projectDocument.Descendants().FirstOrDefault(e => e.Name.LocalName == "AssemblyName")?.Value;
+                if (string.IsNullOrWhiteSpace(assemblyName)) assemblyName = Path.GetFileNameWithoutExtension(project);
+                var projectDirectory = Path.GetDirectoryName(project)!;
+                var debugDll = Directory.EnumerateFiles(projectDirectory, assemblyName + ".dll", SearchOption.AllDirectories)
+                    .Where(path => path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                                && !path.Contains($"{Path.DirectorySeparatorChar}ref{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .FirstOrDefault();
+                if (debugDll is null) throw new FileNotFoundException("The C# Debug DLL could not be found after a successful build.");
+
+                var netcoredbg = FindTool("netcoredbg.exe");
+                if (netcoredbg is null) throw new FileNotFoundException("netcoredbg is not installed. Use Extensions → Install / Update.");
+                var launch = new
+                {
+                    name = "Launch .NET",
+                    type = "coreclr",
+                    request = "launch",
+                    program = debugDll,
+                    cwd = projectDirectory,
+                    stopAtEntry = false,
+                    justMyCode = true,
+                    console = "internalConsole
+                };
+                StartDebugAdapter(netcoredbg, new[] { "--interpreter=vscode" }, projectDirectory, "coreclr", launch, ".NET");
+                return;
+            }
+
+            MessageBox.Show("The debugger supports Python, JavaScript/TypeScript and .NET project files.", "Unsupported file");
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Could not start the Python DAP adapter. Install Python debugpy using Extensions → Install / Update.\n\n" + ex.Message, "Debugger");
+            MessageBox.Show("Could not start the debugger.\n\n" + ex.Message, "Debugger");
+            StatusText.Text = "Debugger failed to start";
         }
+    }
+
+    private void StartDebugAdapter(string executable, IEnumerable<string> arguments, string workingDirectory,
+        string adapterId, object launchConfiguration, string label)
+    {
+        _debugAdapter?.Dispose();
+        var session = new StdioProtocolProcess(executable, arguments, workingDirectory);
+        _debugAdapter = session;
+        session.MessageReceived += json => PostProtocolMessage("dapMessage", json);
+        session.DiagnosticReceived += line => Dispatcher.BeginInvoke(() => AppendTerminal("[DAP] " + line));
+        session.Exited += () => Dispatcher.BeginInvoke(() =>
+        {
+            if (ReferenceEquals(_debugAdapter, session)) _debugAdapter = null;
+            StatusText.Text = label + " debug adapter stopped";
+        });
+        var target = new { adapterId, launch = launchConfiguration };
+        _ = MonacoEditor.ExecuteScriptAsync("window.studioStartDap(" + JsonSerializer.Serialize(target) + ");");
+        WorkspaceTabs.SelectedItem = MonacoTab;
+        StatusText.Text = "Starting " + label + " DAP session…";
     }
 
     private void Build_Click(object sender, RoutedEventArgs e)
@@ -639,19 +745,19 @@ public partial class MainWindow : Window
         _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
         if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
         var executable = serverId == "pyright" ? FindTool("pyright-langserver.cmd", "pyright-langserver.exe", "pyright-langserver")
-                                               : FindTool("csharp-ls.exe", "csharp-ls");
+                                               : FindTool("roslyn-language-server.exe", "roslyn-language-server");
         if (executable is null)
         {
             if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
             LanguageServerStatus.Text = serverId == "pyright"
                 ? "Pyright is not installed. Click Install / Update to add it (Node.js + npm required)."
-                : "C# language server is not installed. Click Install / Update to add csharp-ls (.NET SDK required).";
+                : "Microsoft Roslyn language server is not installed. Click Install / Update to add it (.NET 10 SDK required).";
             return;
         }
 
         try
         {
-            var arguments = serverId == "pyright" ? new[] { "--stdio" } : Array.Empty<string>();
+            var arguments = serverId == "pyright" ? new[] { "--stdio" } : new[] { "--stdio", "--autoLoadProjects" };
             var processExecutable = executable;
             if (executable.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || executable.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
             {
@@ -674,7 +780,7 @@ public partial class MainWindow : Window
                 rootUri = new Uri(Path.GetFullPath(root) + Path.DirectorySeparatorChar).AbsoluteUri
             };
             await MonacoEditor.ExecuteScriptAsync("window.studioConnectLsp(" + JsonSerializer.Serialize(connection) + ");");
-            LanguageServerStatus.Text = (serverId == "pyright" ? "Pyright" : "C# Roslyn via csharp-ls") + " language server starting…";
+            LanguageServerStatus.Text = (serverId == "pyright" ? "Pyright" : "Microsoft Roslyn language server") + " language server starting…";
         }
         catch (Exception ex)
         {
@@ -685,6 +791,22 @@ public partial class MainWindow : Window
 
     private string? FindTool(params string[] names)
     {
+        var userTools = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Studio.exe", "tools");
+        foreach (var name in names)
+        {
+            var marker = name switch
+            {
+                "dapDebugServer.js" => Path.Combine(userTools, "js-debug", "adapter-path.txt"),
+                "netcoredbg.exe" => Path.Combine(userTools, "netcoredbg", "adapter-path.txt"),
+                _ => null
+            };
+            if (marker is not null && File.Exists(marker))
+            {
+                var recordedPath = File.ReadAllText(marker).Trim();
+                if (File.Exists(recordedPath)) return recordedPath;
+            }
+        }
+
         var directories = new List<string>();
         var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
         directories.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
@@ -720,20 +842,31 @@ public partial class MainWindow : Window
     private void RefreshLanguageServerStatus()
     {
         var pyright = FindTool("pyright-langserver.cmd", "pyright-langserver.exe", "pyright-langserver") is not null;
-        var csharp = FindTool("csharp-ls.exe", "csharp-ls") is not null;
-        LanguageServerStatus.Text = $"Pyright: {(pyright ? "installed" : "not installed")} · C# language server: {(csharp ? "installed" : "not installed")} · Python debugger: install debugpy";
+        var csharp = FindTool("roslyn-language-server.exe", "roslyn-language-server") is not null;
+        var jsDebug = FindTool("dapDebugServer.js") is not null;
+        var netDebug = FindTool("netcoredbg.exe") is not null;
+        LanguageServerStatus.Text = $"Pyright: {(pyright ? "installed" : "not installed")} · Roslyn LSP: {(csharp ? "installed" : "not installed")} · JS DAP: {(jsDebug ? "installed" : "not installed")} · .NET DAP: {(netDebug ? "installed" : "not installed")} · Python: debugpy via Python";
     }
 
     private void InstallLanguageTools_Click(object sender, RoutedEventArgs e)
     {
+        var script = Path.Combine(AppContext.BaseDirectory, "Assets", "install-language-tools.ps1");
+        if (!File.Exists(script))
+        {
+            MessageBox.Show("The language-tool installer was not included in this build.", "Tool installer");
+            return;
+        }
         var info = new ProcessStartInfo
         {
-            FileName = "cmd.exe", UseShellExecute = false, RedirectStandardOutput = true,
+            FileName = "powershell.exe", UseShellExecute = false, RedirectStandardOutput = true,
             RedirectStandardError = true, CreateNoWindow = true,
             WorkingDirectory = Directory.Exists(_projectRoot) ? _projectRoot! : Environment.CurrentDirectory
         };
-        info.ArgumentList.Add("/d"); info.ArgumentList.Add("/c");
-        info.ArgumentList.Add("npm install --global pyright && (dotnet tool update --global csharp-ls || dotnet tool install --global csharp-ls) && python -m pip install --user debugpy");
+        info.ArgumentList.Add("-NoProfile");
+        info.ArgumentList.Add("-ExecutionPolicy");
+        info.ArgumentList.Add("Bypass");
+        info.ArgumentList.Add("-File");
+        info.ArgumentList.Add(script);
         StartToolProcess(info, "Language tooling install");
         WorkspaceTabs.SelectedItem = ExtensionsTab;
     }
