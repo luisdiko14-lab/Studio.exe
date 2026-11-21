@@ -484,7 +484,7 @@ public partial class MainWindow : Window
                     redirectOutput = true,
                     subProcess = false
                 };
-                StartDebugAdapter(python, new[] { "-m", "debugpy.adapter" }, workingDirectory, "python", launch, "Python");
+                StartDebugAdapter(python, new[] { "-m", "debugpy.adapter" }, workingDirectory, "python", launch, "Python", _currentFile);
                 return;
             }
 
@@ -507,7 +507,7 @@ public partial class MainWindow : Window
                     sourceMaps = true,
                     smartStep = true
                 };
-                StartDebugAdapter(node, new[] { jsAdapter }, workingDirectory, "pwa-node", launch, "Node.js");
+                StartDebugAdapter(node, new[] { jsAdapter }, workingDirectory, "pwa-node", launch, "Node.js", _currentFile);
                 return;
             }
 
@@ -566,7 +566,7 @@ public partial class MainWindow : Window
                     justMyCode = true,
                     console = "internalConsole"
                 };
-                StartDebugAdapter(netcoredbg, new[] { "--interpreter=vscode" }, projectDirectory, "coreclr", launch, ".NET");
+                StartDebugAdapter(netcoredbg, new[] { "--interpreter=vscode" }, projectDirectory, "coreclr", launch, ".NET", extension == ".cs" ? _currentFile : null);
                 return;
             }
 
@@ -580,7 +580,7 @@ public partial class MainWindow : Window
     }
 
     private void StartDebugAdapter(string executable, IEnumerable<string> arguments, string workingDirectory,
-        string adapterId, object launchConfiguration, string label)
+        string adapterId, object launchConfiguration, string label, string? sourcePath)
     {
         _debugAdapter?.Dispose();
         var session = new StdioProtocolProcess(executable, arguments, workingDirectory);
@@ -592,7 +592,7 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_debugAdapter, session)) _debugAdapter = null;
             StatusText.Text = label + " debug adapter stopped";
         });
-        var target = new { adapterId, launch = launchConfiguration };
+        var target = new { adapterId, launch = launchConfiguration, sourcePath };
         _ = MonacoEditor.ExecuteScriptAsync("window.studioStartDap(" + JsonSerializer.Serialize(target) + ");");
         WorkspaceTabs.SelectedItem = MonacoTab;
         StatusText.Text = "Starting " + label + " DAP session…";
@@ -845,7 +845,7 @@ public partial class MainWindow : Window
         var csharp = FindTool("roslyn-language-server.exe", "roslyn-language-server") is not null;
         var jsDebug = FindTool("dapDebugServer.js") is not null;
         var netDebug = FindTool("netcoredbg.exe") is not null;
-        LanguageServerStatus.Text = $"Pyright: {(pyright ? "installed" : "not installed")} · Roslyn LSP: {(csharp ? "installed" : "not installed")} · JS DAP: {(jsDebug ? "installed" : "not installed")} · .NET DAP: {(netDebug ? "installed" : "not installed")} · Python: debugpy via Python";
+        LanguageServerStatus.Text = $"Pyright: {(pyright ? "installed" : "not installed")} · Roslyn LSP: {(csharp ? "installed" : "not installed")} · JavaScript DAP: {(jsDebug ? "installed" : "not installed")} · .NET DAP: {(netDebug ? "installed" : "not installed")} · Python DAP: debugpy";
     }
 
     private void InstallLanguageTools_Click(object sender, RoutedEventArgs e)
