@@ -93,9 +93,9 @@ The release contains `Studio.exe`, `Studio-win-x64.zip` and `SHA256SUMS.txt`.
 
 Studio now has real LSP/DAP protocol bridges and a useful primitive/custom-mesh editor, but it is not a full Visual Studio or Blender clone yet:
 
-- The DAP UI supports common breakpoint/stepping/stack/variable flows; advanced features such as conditional/log breakpoints, expression watch editing, memory/disassembly and multi-process attach are not implemented.
+- The DAP UI supports common breakpoint/stepping/stack/variable flows; advanced features such as conditional/log breakpoints, expression watch editing, memory/disassembly and multi-process attach are not implemented. Adapter installation and runtime debug sessions require external runtimes and have not been exercised by the GitHub compile/publish job.
 - C# debugging depends on compatible netcoredbg support for the selected target framework/runtime.
-- The 3D editor does not yet include viewport vertex/edge/face selection, bevel/inset/loop-cut tools, sculpt brushes, UV unwrapping, shader-node graphs, rigging, or advanced animation curves.
+- The 3D editor does not yet include viewport vertex/edge/face selection, bevel/inset/loop-cut tools, sculpt brushes, UV unwrapping, shader-node graphs, rigging, advanced animation curves or GLB import. Its face extrusion currently works on a triangle index selected numerically.
 - There is no plugin marketplace, Git GUI, global workspace search, project-template wizard or multi-document tab restoration yet.
 - The ConPTY terminal is hosted in a native HWND surface and therefore has WPF airspace limitations.
 
