@@ -101,7 +101,7 @@
             <MenuItem Header="Check Syntax / Diagnostics" Click="CheckSyntax_Click"/>
             <MenuItem Header="Stop" Click="Stop_Click"/>
           </MenuItem>
-          <MenuItem Header="_Help"><MenuItem Header="About Studio.exe" Click="About_Click"/></MenuItem>
+          <MenuItem Header="_Help"><MenuItem Header="Search and Git" Click="ShowSearchGit_Click"/><Separator/><MenuItem Header="About Studio.exe" Click="About_Click"/></MenuItem>
         </Menu>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,4,10,4">
           <Button Content="Open Project" Click="OpenProject_Click"/>
@@ -120,8 +120,8 @@
             <StackPanel DockPanel.Dock="Top">
               <TextBlock Text="WORKSPACE" Foreground="#8F9DB3" FontWeight="Bold" FontSize="11" Margin="5,6,5,8"/>
               <Button Content="＋  Open project folder" Click="OpenProject_Click"/>
-              <UniformGrid Columns="3" Margin="0,7,0,12">
-                <Button Content="Code" Click="ShowEditor_Click"/><Button Content="3D" Click="Show3D_Click"/><Button Content="Apps" Click="ShowExtensions_Click"/>
+              <UniformGrid Columns="4" Margin="0,7,0,12">
+                <Button Content="Code" Click="ShowEditor_Click"/><Button Content="3D" Click="Show3D_Click"/><Button Content="Apps" Click="ShowExtensions_Click"/><Button Content="Search/Git" Click="ShowSearchGit_Click"/>
               </UniformGrid>
               <DockPanel Margin="4,4,4,8">
                 <TextBlock Text="EXPLORER" Foreground="#A9B5C8" FontWeight="Bold" FontSize="11"/>
@@ -191,6 +191,15 @@
                   <TextBox x:Name="OpacityInput" Text="1"/>
                   <Button Content="Apply transforms + material" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,10,3,3"/>
                   <Button Content="Subdivide selected mesh" Click="SubdivideMesh_Click" Margin="3,3,3,3"/>
+                  <TextBlock Text="TOPOLOGY TOOLS" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,10,3,3"/>
+                  <TextBlock Text="Triangle index (0-based)" Foreground="#9AA5B5" Margin="3,2,3,0"/>
+                  <TextBox x:Name="TopologyTriangleIndex" Text="0"/>
+                  <TextBlock Text="Inset fraction (0–0.45)" Foreground="#9AA5B5" Margin="3,4,3,0"/>
+                  <TextBox x:Name="InsetAmountInput" Text="0.2"/>
+                  <Button Content="Inset triangle face" Click="InsetTriangle_Click" Margin="3,4,3,3"/>
+                  <TextBlock Text="Edge: 0 = AB, 1 = BC, 2 = CA" Foreground="#9AA5B5" Margin="3,6,3,0" TextWrapping="Wrap"/>
+                  <TextBox x:Name="SplitEdgeIndexInput" Text="0"/>
+                  <Button Content="Split connected edge" Click="SplitEdge_Click" Margin="3,4,3,3"/>
                   <TextBlock Text="EXTRUDE FACE" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,10,3,3"/>
                   <TextBlock Text="Triangle index (0-based)" Foreground="#9AA5B5" Margin="3,2,3,0"/>
                   <TextBox x:Name="ExtrudeTriangleIndex" Text="0"/>
@@ -241,6 +250,59 @@
           </TabItem>
           <TabItem x:Name="TerminalTab" Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
           
+          <TabItem x:Name="SearchGitTab" Header="Search + Git">
+            <Grid Background="#171A21" Margin="12">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border Grid.Column="0" Background="#20242E" CornerRadius="9" BorderBrush="#343B49" BorderThickness="1" Padding="14" Margin="0,0,6,0">
+                <Grid>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="WORKSPACE SEARCH" FontWeight="Bold" Foreground="#AAB8FF" FontSize="12"/>
+                    <TextBlock Text="Find text in every project file" Foreground="#9AA5B5" Margin="0,4,0,10"/>
+                  </StackPanel>
+                  <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBox x:Name="WorkspaceSearchQuery" Margin="0,0,6,0" VerticalContentAlignment="Center" ToolTip="Text to search for"/>
+                    <CheckBox x:Name="SearchCaseSensitive" Grid.Column="1" Content="Aa" Foreground="#B6C1D2" VerticalAlignment="Center" Margin="3,0,8,0" ToolTip="Case-sensitive search"/>
+                    <Button Grid.Column="2" Content="Search" Click="SearchWorkspace_Click" Background="#536BD6" Padding="14,7"/>
+                  </Grid>
+                  <ListBox x:Name="SearchResultsList" Grid.Row="2" Margin="0,10,0,0" Background="#171A21" Foreground="#E5EAF3"
+                           BorderThickness="0" MouseDoubleClick="SearchResultsList_MouseDoubleClick">
+                    <ListBox.ItemTemplate><DataTemplate>
+                      <Border BorderBrush="#2B3443" BorderThickness="0,0,0,1" Padding="6">
+                        <StackPanel>
+                          <TextBlock Text="{Binding DisplayLabel}" Foreground="#AAB8FF" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding Preview}" Foreground="#C1CAD8" TextTrimming="CharacterEllipsis" FontSize="11"/>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate></ListBox.ItemTemplate>
+                  </ListBox>
+                </Grid>
+              </Border>
+              <Border Grid.Column="1" Background="#20242E" CornerRadius="9" BorderBrush="#343B49" BorderThickness="1" Padding="14" Margin="6,0,0,0">
+                <Grid>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="GIT" FontWeight="Bold" Foreground="#AAB8FF" FontSize="12"/>
+                    <TextBlock x:Name="GitRootText" Text="Open a project folder to use Git" Foreground="#9AA5B5" Margin="0,4,0,10" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <WrapPanel Grid.Row="1">
+                    <Button Content="Status" Click="RefreshGit_Click" Padding="12,6"/>
+                    <Button Content="Pull" Click="GitPull_Click" Padding="12,6"/>
+                    <Button Content="Push" Click="GitPush_Click" Padding="12,6"/>
+                  </WrapPanel>
+                  <StackPanel Grid.Row="2" Margin="0,10,0,8">
+                    <TextBox x:Name="GitCommitMessage" Text="Update project" Margin="0,0,0,6"/>
+                    <Button Content="Stage all + Commit" Click="GitCommit_Click" Background="#536BD6" Padding="12,7" HorizontalAlignment="Left"/>
+                  </StackPanel>
+                  <TextBox x:Name="GitOutput" Grid.Row="3" Background="#111720" Foreground="#CFD8E8" BorderThickness="0" Padding="10"
+                           FontFamily="Cascadia Mono, Consolas" FontSize="12" AcceptsReturn="True" IsReadOnly="True"
+                           TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                </Grid>
+              </Border>
+            </Grid>
+          </TabItem>
+
           <TabItem x:Name="ExtensionsTab" Header="Extensions">
             <ScrollViewer Background="#171A21" VerticalScrollBarVisibility="Auto">
               <StackPanel Margin="24" MaxWidth="820" HorizontalAlignment="Left">
