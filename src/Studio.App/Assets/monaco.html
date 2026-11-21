@@ -30,6 +30,17 @@ require(["vs/editor/editor.main"],function(){
     monaco.editor.setModelLanguage(editor.getModel(),language||"plaintext");
     setTimeout(()=>{settingValue=false;},0);
   };
+  window.studioSetDiagnostics=function(items){
+    const model=editor.getModel(); if(!model)return;
+    const markers=(items||[]).map(d=>({
+      startLineNumber:Math.max(1,d.line||1),startColumn:Math.max(1,d.column||1),
+      endLineNumber:Math.max(1,d.line||1),endColumn:Math.max(2,(d.column||1)+1),
+      message:d.message||"Diagnostic",
+      severity:d.severity==="Warning"?monaco.MarkerSeverity.Warning:monaco.MarkerSeverity.Error,
+      source:"Studio.exe"
+    }));
+    monaco.editor.setModelMarkers(model,"studio-diagnostics",markers);
+  };
   editor.onDidChangeModelContent(()=>{
     if(!settingValue) window.chrome.webview.postMessage({text:editor.getValue()});
   });
