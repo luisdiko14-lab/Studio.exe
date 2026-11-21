@@ -165,7 +165,8 @@
                   <ListBox x:Name="SceneList" Background="#171A21" Foreground="#F1F4FA" BorderThickness="0" SelectionChanged="SceneList_SelectionChanged"/>
                   <Button Content="Save scene…" Click="SaveScene_Click"/>
                   <Button Content="Open scene…" Click="OpenScene_Click"/>
-                  <Button Content="Export OBJ / STL…" Click="Export3D_Click"/>
+                  <Button Content="Import OBJ / STL…" Click="ImportMesh_Click"/>
+                  <Button Content="Export OBJ / STL / GLB…" Click="Export3D_Click"/>
                 </StackPanel>
               </Border>
               <Border Grid.Column="1" Background="#101722" CornerRadius="9" BorderBrush="#343B49" BorderThickness="1" ClipToBounds="True">
@@ -186,6 +187,23 @@
                   <TextBox x:Name="ObjectColor" Text="#718EFF"/>
                   <Button Content="Apply transforms + material" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,10,3,3"/>
                   <Button Content="Subdivide selected mesh" Click="SubdivideMesh_Click" Margin="3,3,3,3"/>
+                  <Button Content="Smooth mesh" Click="SmoothMesh_Click" Margin="3,3,3,3"/>
+                  <Button Content="Flip face normals" Click="FlipNormals_Click" Margin="3,3,3,3"/>
+                  <TextBlock Text="MESH VERTICES" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,12,3,4"/>
+                  <DataGrid x:Name="VertexGrid" Height="160" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" Background="#171A21" Foreground="#E8EDF7" RowBackground="#20242E" AlternatingRowBackground="#252C38" BorderThickness="0" FontSize="10" ItemsSource="{Binding}" IsReadOnly="False">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="#" Binding="{Binding Index}" IsReadOnly="True" Width="28"/>
+                      <DataGridTextColumn Header="X" Binding="{Binding X, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                      <DataGridTextColumn Header="Y" Binding="{Binding Y, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                      <DataGridTextColumn Header="Z" Binding="{Binding Z, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <Button Content="Apply vertex edits" Click="ApplyVertexEdits_Click" Margin="3,4,3,3"/>
+                  <Separator Margin="3,12"/>
+                  <TextBlock Text="ANIMATION TIMELINE" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,4,3,4"/>
+                  <Slider x:Name="TimelineSlider" Minimum="0" Maximum="10" Value="0" TickFrequency="0.5" ValueChanged="TimelineSlider_ValueChanged"/>
+                  <TextBlock x:Name="TimelineTimeText" Text="0.00 s" Foreground="#AAB8FF" Margin="3,0,3,4"/>
+                  <UniformGrid Columns="3"><Button Content="Keyframe" Click="AddKeyframe_Click"/><Button Content="Play" Click="PlayTimeline_Click"/><Button Content="Stop" Click="StopTimeline_Click"/></UniformGrid>
                   <TextBlock Text="Orbit: left-drag · Pan: right-drag · Zoom: mouse wheel. Helix viewport adds a grid and view cube."
                              Foreground="#8996AA" TextWrapping="Wrap" FontSize="11" Margin="4,14,4,0"/>
                 </StackPanel>
@@ -201,7 +219,9 @@
             <ScrollViewer Background="#171A21" VerticalScrollBarVisibility="Auto">
               <StackPanel Margin="24" MaxWidth="820" HorizontalAlignment="Left">
                 <TextBlock Text="Language extensions" FontSize="26" FontWeight="SemiBold" Margin="0,6,0,6"/>
-                <TextBlock Text="Studio ships with exactly three language integrations." Foreground="#9AA5B5" Margin="0,0,0,18"/>
+                <TextBlock Text="Language runtimes, language servers and debugger adapters." Foreground="#9AA5B5" Margin="0,0,0,10"/>
+                <TextBlock x:Name="LanguageServerStatus" Text="Pyright / Roslyn language servers: checking…" Foreground="#AAB8FF" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                <Button Content="Install / Update Python + C# language servers and debugpy" Click="InstallLanguageTools_Click" HorizontalAlignment="Left" Padding="14,8" Margin="0,0,0,18"/>
                 <Border Background="#20242E" BorderBrush="#343B49" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
                   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel><TextBlock Text="JavaScript" FontSize="18" FontWeight="SemiBold"/><TextBlock Text=".js / .mjs • Node.js runtime • npm / pnpm" Foreground="#A5B0C1" Margin="0,5,0,0"/><TextBlock x:Name="JsStatus" Text="Enabled" Foreground="#91A0FF" Margin="0,8,0,0"/></StackPanel>
