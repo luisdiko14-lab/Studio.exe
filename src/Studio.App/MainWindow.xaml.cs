@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private readonly List<SceneObject> _scene = [];
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
-    private bool _isLoadingEditor, _isDirty, _terminalVisible = true;
+    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;\n    private string _monacoText = string.Empty;
     private Process? _runProcess;
     private Model3DGroup _world = new();
 
@@ -242,7 +242,7 @@ public partial class MainWindow : Window
         if (_currentFile is null) { SaveAs_Click(this, new RoutedEventArgs()); return !_isDirty; }
         try
         {
-            File.WriteAllText(_currentFile, EditorText.Text, new UTF8Encoding(false));
+            var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;\n            File.WriteAllText(_currentFile, content, new UTF8Encoding(false));
             _isDirty = false; CurrentFileText.Text = Path.GetFileName(_currentFile);
             StatusText.Text = "File saved"; RefreshExplorer(); return true;
         }
@@ -374,6 +374,42 @@ public partial class MainWindow : Window
         try { if (_runProcess is { HasExited: false }) _runProcess.Kill(entireProcessTree: true); StatusText.Text = "Stop requested"; }
         catch (Exception ex) { AppendTerminal($"Stop failed: {ex.Message}"); }
     }
+
+    private async Task InitializeMonacoAsync()
+    {
+        try
+        {
+            await MonacoEditor.EnsureCoreWebView2Async();
+            MonacoEditor.CoreWebView2.WebMessageReceived += (_, e) =>
+            {
+                try { var message = JsonDocument.Parse(e.WebMessageAsJson).RootElement; if (message.TryGetProperty("text", out var value)) _monacoText = value.GetString() ?? string.Empty; } catch { }
+            };
+            var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "monaco.html");
+            if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco web assets were not published.", htmlPath);
+            MonacoEditor.NavigateToString(File.ReadAllText(htmlPath));
+            _monacoReady = true;
+        }
+        catch (Exception ex) { StatusText.Text = "Monaco initialization failed: " + ex.Message; }
+    }
+
+    private async Task SetMonacoTextAsync(string text, string? path)
+    {
+        if (!_monacoReady) return;
+        var language = Path.GetExtension(path ?? "").ToLowerInvariant() switch { ".js" or ".mjs" or ".cjs" => "javascript", ".py" => "python", ".cs" => "csharp", ".json" => "json", ".xml" or ".xaml" => "xml", _ => "plaintext" };
+        await MonacoEditor.ExecuteScriptAsync("window.studioSetValue(" + JsonSerializer.Serialize(text) + "," + JsonSerializer.Serialize(language) + ");");
+    }
+
+    private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It also requires internet access to load its editor engine.", "Monaco Editor"); return; }
+        _monacoText = EditorText.Text;
+        await SetMonacoTextAsync(_monacoText, _currentFile);
+        WorkspaceTabs.SelectedItem = MonacoTab;
+    }
+
+    private void NativePowerShell_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "pwsh.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
 
     private void ShowEditor_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = EditorTab;
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
