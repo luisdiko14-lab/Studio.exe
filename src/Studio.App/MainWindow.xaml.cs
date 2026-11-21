@@ -281,7 +281,7 @@ public partial class MainWindow : Window
         _currentDocument.IsDirty = _isDirty;
     }
 
-    private void CloseCurrentDocument_Click(object sender, RoutedEventArgs e)
+    private async void CloseCurrentDocument_Click(object sender, RoutedEventArgs e)
     {
         if (_currentDocument is null) return;
         var document = _currentDocument;
@@ -293,7 +293,7 @@ public partial class MainWindow : Window
             if (answer == MessageBoxResult.Yes && !SaveDocument(document)) return;
         }
         var uri = new Uri(Path.GetFullPath(document.FilePath)).AbsoluteUri;
-        if (_monacoReady) _ = MonacoEditor.ExecuteScriptAsync("window.studioCloseDocument(" + JsonSerializer.Serialize(uri) + ");");
+        if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioCloseDocument(" + JsonSerializer.Serialize(uri) + ");");
         var index = _openDocuments.IndexOf(document);
         _openDocuments.Remove(document);
         _currentDocument = null;
@@ -1854,7 +1854,12 @@ public partial class MainWindow : Window
     private sealed class OpenDocument : INotifyPropertyChanged
     {
         private bool _isDirty;
-        public string FilePath { get; set; } = string.Empty;
+        private string _filePath = string.Empty;
+        public string FilePath
+        {
+            get => _filePath;
+            set { if (!string.Equals(_filePath, value, StringComparison.OrdinalIgnoreCase)) { _filePath = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FilePath))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName))); } }
+        }
         public string Content { get; set; } = string.Empty;
         public bool IsDirty
         {
