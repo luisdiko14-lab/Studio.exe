@@ -7,8 +7,8 @@ Studio.exe is a Windows desktop development workspace built with C# and WPF on .
 - First-launch wizard for studio name, theme, accent, and default project folder. Settings persist in the user's AppData folder.
 - Project explorer with open/create/save actions and keyboard shortcuts.
 - Monaco editor with JavaScript/TypeScript's built-in TypeScript language service, plus language-aware Python and C# completions, hover documentation, signature help, symbol outline and in-document definition navigation.
-- Python and Node.js interactive command-line debugging: Python uses `pdb`; JavaScript uses Node's `node inspect` CLI debugger. Debug sessions run in the ConPTY terminal.
-- Build and run commands for JavaScript, Python, and .NET projects. Process output and exit codes are streamed into the workspace terminal.
+- Python and Node.js interactive command-line debugging: Python uses `pdb`; JavaScript uses Node's `node inspect` CLI debugger. Debug sessions run in the ConPTY terminal. A Check action runs `node --check`, `python -m py_compile`, or `dotnet build` and maps recognized messages to Monaco diagnostics.
+- Build and run commands for JavaScript, Python, and .NET projects. Syntax/build checks capture compiler diagnostics and map recognized errors and warnings into Monaco markers for the active source file.
 - Real PowerShell or cmd.exe sessions through the Windows Terminal ConPTY control. Commands run as the current Windows user.
 - Interactive HelixToolkit 3D viewport with orbit/pan/zoom, grid, axes, view cube, cube/sphere/cylinder/cone/plane/torus primitives, XYZ transforms, per-object material colors, triangle-mesh subdivision, duplicate/delete, full geometry/material scene persistence, and OBJ/ASCII STL export.
 - PowerShell setup/build/run scripts.
