@@ -156,6 +156,167 @@ public partial class MainWindow : Window
         catch (Exception ex) { MessageBox.Show($"Could not save Studio settings:\n{ex.Message}", "Settings error"); }
     }
 
+    private void NewProject_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscardOrSave()) return;
+        var folder = new OpenFolderDialog
+        {
+            Title = "Choose the parent folder for the new project",
+            InitialDirectory = Directory.Exists(_settings.DefaultProjectDirectory)
+                ? _settings.DefaultProjectDirectory : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+        if (folder.ShowDialog() != true) return;
+
+        var name = Microsoft.VisualBasic.Interaction.InputBox("Project folder name:", "New Project", "MyProject").Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
+        foreach (var character in Path.GetInvalidFileNameChars()) name = name.Replace(character, '_');
+        name = name.Trim().Trim('.');
+        if (string.IsNullOrWhiteSpace(name) || name is "." or "..")
+        {
+            MessageBox.Show("Enter a valid project folder name.", "New Project");
+            return;
+        }
+
+        var template = Microsoft.VisualBasic.Interaction.InputBox(
+            "Choose a template: JavaScript, Python, C# Console, or Web",
+            "Project Template", "JavaScript").Trim();
+        if (template.Length == 0) return;
+        template = template.ToLowerInvariant() switch
+        {
+            "javascript" or "js" or "node" => "JavaScript",
+            "python" or "py" => "Python",
+            "c#" or "csharp" or "c# console" or "console" => "C# Console",
+            "web" or "html" or "website" => "Web",
+            _ => string.Empty
+        };
+        if (template.Length == 0)
+        {
+            MessageBox.Show("Choose JavaScript, Python, C# Console, or Web.", "Unknown template");
+            return;
+        }
+
+        var projectRoot = Path.Combine(folder.FolderName, name);
+        if (Directory.Exists(projectRoot) || File.Exists(projectRoot))
+        {
+            MessageBox.Show("A file or folder with that name already exists in the selected location.", "New Project");
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(projectRoot);
+            var entryFile = template switch
+            {
+                "JavaScript" => CreateJavaScriptTemplate(projectRoot, name),
+                "Python" => CreatePythonTemplate(projectRoot),
+                "C# Console" => CreateCSharpTemplate(projectRoot, name),
+                _ => CreateWebTemplate(projectRoot)
+            };
+            File.WriteAllText(Path.Combine(projectRoot, ".gitignore"),
+                "node_modules/\n.DS_Store\n.vscode/\n.idea/\nbin/\nobj/\n__pycache__/\n.venv/\nartifacts/\n", new UTF8Encoding(false));
+
+            _projectRoot = projectRoot;
+            _currentDirectory = projectRoot;
+            GitRootText.Text = projectRoot;
+            ProjectStatusText.Text = projectRoot;
+            _settings.DefaultProjectDirectory = folder.FolderName;
+            PersistSettings();
+            RefreshExplorer();
+            OpenFile(Path.Combine(projectRoot, entryFile));
+            StatusText.Text = template + " project created";
+        }
+        catch (Exception ex)
+        {
+            try { if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true); } catch { }
+            MessageBox.Show("Could not create the project:\n" + ex.Message, "New Project failed");
+        }
+    }
+
+    private static string CreateJavaScriptTemplate(string root, string name)
+    {
+        var packageName = Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9._-]+", "-").Trim('-', '.');
+        if (packageName.Length == 0) packageName = "my-project";
+        var package = new
+        {
+            name = packageName,
+            version = "1.0.0",
+            private = true,
+            type = "module",
+            scripts = new { start = "node index.js" }
+        };
+        File.WriteAllText(Path.Combine(root, "package.json"),
+            JsonSerializer.Serialize(package, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "index.js"),
+            "console.log('Hello from " + name.Replace("'", "\\'") + "!');\n", new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "README.md"),
+            "# " + name + "\n\nRun npm start to start the project.\n", new UTF8Encoding(false));
+        return "index.js";
+    }
+
+    private static string CreatePythonTemplate(string root)
+    {
+        File.WriteAllText(Path.Combine(root, "main.py"),
+            "def main() -> None:\n    print('Hello from Python!')\n\n\nif __name__ == '__main__':\n    main()\n", new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "requirements.txt"), "# Add project dependencies here.\n", new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "README.md"),
+            "# Python project\n\nRun python main.py to start.\n", new UTF8Encoding(false));
+        return "main.py";
+    }
+
+    private static string CreateCSharpTemplate(string root, string name)
+    {
+        var safe = Regex.Replace(name, @"[^A-Za-z0-9_]", "_");
+        if (safe.Length == 0 || (!char.IsLetter(safe[0]) && safe[0] != '_')) safe = "_" + safe;
+        var csproj = """
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <OutputType>Exe</OutputType>
+            <TargetFramework>net10.0</TargetFramework>
+            <ImplicitUsings>enable</ImplicitUsings>
+            <Nullable>enable</Nullable>
+          </PropertyGroup>
+        </Project>
+        """;
+        File.WriteAllText(Path.Combine(root, safe + ".csproj"), csproj + Environment.NewLine, new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "Program.cs"),
+            "Console.WriteLine(\"Hello from " + safe + "!\");" + Environment.NewLine, new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "README.md"),
+            "# " + safe + "\n\nBuild with dotnet build and run with dotnet run.\n", new UTF8Encoding(false));
+        return safe + ".csproj";
+    }
+
+    private static string CreateWebTemplate(string root)
+    {
+        File.WriteAllText(Path.Combine(root, "index.html"),
+            """
+            <!doctype html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>My Web Project</title>
+              <link rel="stylesheet" href="styles.css">
+            </head>
+            <body>
+              <main>
+                <h1>Hello, world!</h1>
+                <p>Your new Studio.exe web project is ready.</p>
+                <button id="hello">Click me</button>
+              </main>
+              <script type="module" src="main.js"></script>
+            </body>
+            </html>
+            """, new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "styles.css"),
+            "body{font:16px system-ui;background:#111827;color:#f8fafc;display:grid;min-height:100vh;place-items:center}main{max-width:42rem;padding:2rem}button{padding:.7rem 1rem;border-radius:.5rem;border:0;cursor:pointer}\n",
+            new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "main.js"),
+            "document.querySelector('#hello').addEventListener('click',()=>alert('Your web project is running!'));\n",
+            new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(root, "README.md"), "# Web project\n\nOpen index.html in a browser.\n", new UTF8Encoding(false));
+        return "main.js";
+    }
+
     private void OpenProject_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
