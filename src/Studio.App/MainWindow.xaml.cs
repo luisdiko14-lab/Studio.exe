@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private bool _suppressDocumentSelection;
     private CancellationTokenSource? _searchCancellation;
     private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+    private Point _modelViewportMouseDown;
     private StdioProtocolProcess? _languageServer, _debugAdapter;
     private string? _languageServerId, _documentUri;
     private AppSettings _settings;
@@ -1213,6 +1214,82 @@ public partial class MainWindow : Window
         ModelViewport.Children.Add(new ModelVisual3D { Content = _world });
         AddSceneObject("Cube");
     }
+    private void ModelViewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _modelViewportMouseDown = e.GetPosition(ModelViewport);
+    }
+
+    private void ModelViewport_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        var released = e.GetPosition(ModelViewport);
+        if ((released - _modelViewportMouseDown).Length > 5) return; // preserve orbit drag
+        var selected = HitTestScene(released);
+        if (selected is not null) SceneList.SelectedItem = selected.Name;
+    }
+
+    private SceneObject? HitTestScene(Point screenPoint)
+    {
+        if (ModelViewport.ActualWidth <= 0 || ModelViewport.ActualHeight <= 0 ||
+            ModelViewport.Camera is not PerspectiveCamera camera) return null;
+
+        var forward = camera.LookDirection;
+        if (forward.Length < 0.000001) return null;
+        forward.Normalize();
+        var right = Vector3D.CrossProduct(forward, camera.UpDirection);
+        if (right.Length < 0.000001) return null;
+        right.Normalize();
+        var up = Vector3D.CrossProduct(right, forward);
+        up.Normalize();
+
+        var normalizedX = (screenPoint.X / ModelViewport.ActualWidth - 0.5) * 2.0;
+        var normalizedY = (0.5 - screenPoint.Y / ModelViewport.ActualHeight) * 2.0;
+        var tangent = Math.Tan(camera.FieldOfView * Math.PI / 360.0);
+        var aspect = ModelViewport.ActualWidth / ModelViewport.ActualHeight;
+        var direction = forward + right * (normalizedX * tangent * aspect) + up * (normalizedY * tangent);
+        if (direction.Length < 0.000001) return null;
+        direction.Normalize();
+
+        SceneObject? nearest = null;
+        var nearestDistance = double.PositiveInfinity;
+        foreach (var item in _scene)
+        {
+            var indices = item.Mesh.TriangleIndices;
+            for (var i = 0; i + 2 < indices.Count; i += 3)
+            {
+                var a = item.Model.Transform.Transform(item.Mesh.Positions[indices[i]]);
+                var b = item.Model.Transform.Transform(item.Mesh.Positions[indices[i + 1]]);
+                var c = item.Model.Transform.Transform(item.Mesh.Positions[indices[i + 2]]);
+                if (RayIntersectsTriangle(camera.Position, direction, a, b, c, out var distance) &&
+                    distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = item;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    private static bool RayIntersectsTriangle(Point3D origin, Vector3D direction,
+        Point3D a, Point3D b, Point3D c, out double distance)
+    {
+        const double epsilon = 1e-8;
+        var edge1 = b - a;
+        var edge2 = c - a;
+        var h = Vector3D.CrossProduct(direction, edge2);
+        var determinant = Vector3D.DotProduct(edge1, h);
+        if (Math.Abs(determinant) < epsilon) { distance = 0; return false; }
+        var inverse = 1.0 / determinant;
+        var s = origin - a;
+        var u = inverse * Vector3D.DotProduct(s, h);
+        if (u < 0 || u > 1) { distance = 0; return false; }
+        var q = Vector3D.CrossProduct(s, edge1);
+        var v = inverse * Vector3D.DotProduct(direction, q);
+        if (v < 0 || u + v > 1) { distance = 0; return false; }
+        distance = inverse * Vector3D.DotProduct(edge2, q);
+        return distance > epsilon;
+    }
+
     private void AddPrimitive_Click(object sender, RoutedEventArgs e)
     {
         var shape = (ShapePicker.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Cube";
