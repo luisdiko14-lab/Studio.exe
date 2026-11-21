@@ -469,16 +469,17 @@ require(["vs/editor/editor.main"],function(){
     byId("debug-stack").innerHTML="";byId("debug-variables").innerHTML="";byId("debug-output").textContent="";
     renderBreakpoints();
     const initialized=await dapRequest("initialize",{
-      clientID:"studio-exe",clientName:"Studio.exe",adapterID:"python",pathFormat:"path",
+      clientID:"studio-exe",clientName:"Studio.exe",adapterID:target.adapterId||"python",pathFormat:"path",
       linesStartAt1:true,columnsStartAt1:true,supportsVariableType:true,
       supportsRunInTerminalRequest:false,supportsProgressReporting:true
     });
     if(!initialized){setDebugStatus("debugpy did not respond to initialize");return;}
-    const launched=await dapRequest("launch",{
+    const launchConfiguration=target.launch||{
       name:"Launch Python",type:"python",request:"launch",program:target.program,cwd:target.cwd,
       python:target.python,console:"internalConsole",justMyCode:true,stopOnEntry:false,
       redirectOutput:true,subProcess:false
-    });
+    };
+    const launched=await dapRequest("launch",launchConfiguration);
     if(!launched)setDebugStatus("Python launch failed · check debug console output");
     else setDebugStatus("Python process launched · set a gutter breakpoint or wait for a stop");
   };
