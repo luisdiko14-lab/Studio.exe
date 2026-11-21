@@ -28,6 +28,9 @@ public partial class MainWindow : Window
     private readonly List<string> _sceneNames = [];
     private readonly List<SceneObject> _scene = [];
     private readonly ObservableCollection<VertexEditRow> _vertexRows = [];
+    private readonly ObservableCollection<OpenDocument> _openDocuments = [];
+    private OpenDocument? _currentDocument;
+    private bool _suppressDocumentSelection;
     private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private StdioProtocolProcess? _languageServer, _debugAdapter;
     private string? _languageServerId, _documentUri;
@@ -45,6 +48,7 @@ public partial class MainWindow : Window
         ExplorerList.ItemsSource = _explorerEntries;
         SceneList.ItemsSource = _sceneNames;
         VertexGrid.ItemsSource = _vertexRows;
+        OpenDocumentsList.ItemsSource = _openDocuments;
         _animationTimer.Tick += AnimationTimer_Tick;
         WizardRoot.Visibility = _settings.SetupCompleted ? Visibility.Collapsed : Visibility.Visible;
         WorkspaceRoot.Visibility = _settings.SetupCompleted ? Visibility.Visible : Visibility.Collapsed;
@@ -224,23 +228,103 @@ public partial class MainWindow : Window
     }
     private void OpenFile(string path)
     {
-        if (!ConfirmDiscardOrSave()) return;
         try
         {
-            _isLoadingEditor = true; EditorText.Text = File.ReadAllText(path);
-            _monacoText = EditorText.Text;
-            _currentFile = path;
-            _ = SetMonacoTextAsync(_monacoText, path); _isDirty = false; CurrentFileText.Text = Path.GetFileName(path);
-            StatusText.Text = $"Opened {Path.GetFileName(path)}"; WorkspaceTabs.SelectedItem = EditorTab;
+            var fullPath = Path.GetFullPath(path);
+            var document = _openDocuments.FirstOrDefault(d => string.Equals(d.FilePath, fullPath, StringComparison.OrdinalIgnoreCase));
+            if (document is null)
+            {
+                document = new OpenDocument { FilePath = fullPath, Content = File.ReadAllText(fullPath) };
+                _openDocuments.Add(document);
+            }
+
+            if (ReferenceEquals(OpenDocumentsList.SelectedItem, document))
+                _ = ActivateDocumentAsync(document);
+            else
+                OpenDocumentsList.SelectedItem = document;
         }
         catch (Exception ex) { MessageBox.Show($"Could not open file:\n{ex.Message}", "Open file failed"); }
-        finally { _isLoadingEditor = false; }
     }
+
+    private async void OpenDocumentsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressDocumentSelection || OpenDocumentsList.SelectedItem is not OpenDocument document) return;
+        await ActivateDocumentAsync(document);
+    }
+
+    private async Task ActivateDocumentAsync(OpenDocument document)
+    {
+        if (_currentDocument is not null && !ReferenceEquals(_currentDocument, document))
+            CaptureActiveDocument();
+
+        _currentDocument = document;
+        _currentFile = document.FilePath;
+        _isDirty = document.IsDirty;
+        _currentDirectory = Path.GetDirectoryName(document.FilePath);
+        _monacoText = document.Content;
+        _isLoadingEditor = true;
+        EditorText.Text = document.Content;
+        _isLoadingEditor = false;
+        CurrentFileText.Text = document.DisplayName;
+        ProjectStatusText.Text = _projectRoot ?? _currentDirectory ?? "No project open";
+        WorkspaceTabs.SelectedItem = MonacoTab;
+        await SetMonacoTextAsync(document.Content, document.FilePath);
+        StatusText.Text = $"Opened {Path.GetFileName(document.FilePath)}";
+        RefreshExplorer();
+    }
+
+    private void CaptureActiveDocument()
+    {
+        if (_currentDocument is null) return;
+        var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;
+        _currentDocument.Content = content;
+        _currentDocument.IsDirty = _isDirty;
+    }
+
+    private void CloseCurrentDocument_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentDocument is null) return;
+        var document = _currentDocument;
+        if (document.IsDirty)
+        {
+            var answer = MessageBox.Show($"Save changes to {Path.GetFileName(document.FilePath)} before closing?",
+                "Close document", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Cancel) return;
+            if (answer == MessageBoxResult.Yes && !SaveDocument(document)) return;
+        }
+        var uri = new Uri(Path.GetFullPath(document.FilePath)).AbsoluteUri;
+        if (_monacoReady) _ = MonacoEditor.ExecuteScriptAsync("window.studioCloseDocument(" + JsonSerializer.Serialize(uri) + ");");
+        var index = _openDocuments.IndexOf(document);
+        _openDocuments.Remove(document);
+        _currentDocument = null;
+        _currentFile = null;
+        _isDirty = false;
+        if (_openDocuments.Count > 0)
+        {
+            OpenDocumentsList.SelectedItem = _openDocuments[Math.Clamp(index, 0, _openDocuments.Count - 1)];
+        }
+        else
+        {
+            _suppressDocumentSelection = true;
+            OpenDocumentsList.SelectedItem = null;
+            _suppressDocumentSelection = false;
+            _monacoText = string.Empty;
+            _isLoadingEditor = true; EditorText.Clear(); _isLoadingEditor = false;
+            CurrentFileText.Text = "No file open";
+            StatusText.Text = "All documents closed";
+        }
+    }
+
     private void EditorText_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_isLoadingEditor) return;
         _isDirty = _currentFile is not null;
-        if (_isDirty) CurrentFileText.Text = $"{Path.GetFileName(_currentFile)} •";
+        if (_currentDocument is not null)
+        {
+            _currentDocument.Content = EditorText.Text;
+            _currentDocument.IsDirty = _isDirty;
+        }
+        if (_isDirty) CurrentFileText.Text = _currentDocument?.DisplayName ?? (Path.GetFileName(_currentFile) + " •");
     }
     private void Save_Click(object sender, RoutedEventArgs e) => SaveCurrentFile();
     private void SaveAs_Click(object sender, RoutedEventArgs e)
@@ -250,27 +334,61 @@ public partial class MainWindow : Window
             InitialDirectory = Directory.Exists(_currentDirectory) ? _currentDirectory : "",
             FileName = _currentFile is null ? "new-file.txt" : Path.GetFileName(_currentFile)
         };
-        if (dialog.ShowDialog() == true) { _currentFile = dialog.FileName; SaveCurrentFile(); }
+        if (dialog.ShowDialog() == true)
+        {
+            _currentFile = Path.GetFullPath(dialog.FileName);
+            if (_currentDocument is not null) _currentDocument.FilePath = _currentFile;
+            SaveCurrentFile();
+            if (_currentDocument is not null) _ = SetMonacoTextAsync(_currentDocument.Content, _currentDocument.FilePath);
+        }
     }
     private bool SaveCurrentFile()
     {
-        if (_currentFile is null) { SaveAs_Click(this, new RoutedEventArgs()); return !_isDirty; }
+        if (_currentDocument is null)
+        {
+            if (_currentFile is null) { SaveAs_Click(this, new RoutedEventArgs()); return !_isDirty; }
+            _currentDocument = new OpenDocument { FilePath = _currentFile };
+        }
+        CaptureActiveDocument();
+        return SaveDocument(_currentDocument);
+    }
+
+    private bool SaveDocument(OpenDocument document)
+    {
         try
         {
-            var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;
-            File.WriteAllText(_currentFile, content, new UTF8Encoding(false));
-            _isDirty = false; CurrentFileText.Text = Path.GetFileName(_currentFile);
-            StatusText.Text = "File saved"; RefreshExplorer(); return true;
+            File.WriteAllText(document.FilePath, document.Content, new UTF8Encoding(false));
+            document.IsDirty = false;
+            if (ReferenceEquals(_currentDocument, document))
+            {
+                _isDirty = false;
+                _monacoText = document.Content;
+                CurrentFileText.Text = document.DisplayName;
+            }
+            StatusText.Text = "Saved " + Path.GetFileName(document.FilePath);
+            RefreshExplorer();
+            return true;
         }
-        catch (Exception ex) { MessageBox.Show($"Could not save file:\n{ex.Message}", "Save failed"); return false; }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not save {Path.GetFileName(document.FilePath)}:\n{ex.Message}", "Save failed");
+            return false;
+        }
     }
+
     private bool ConfirmDiscardOrSave()
     {
-        if (!_isDirty) return true;
-        var answer = MessageBox.Show("Save changes to the current file before continuing?", "Unsaved changes",
-            MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        CaptureActiveDocument();
+        var dirtyDocuments = _openDocuments.Where(document => document.IsDirty).ToList();
+        if (dirtyDocuments.Count == 0) return true;
+        var answer = MessageBox.Show($"Save changes to {dirtyDocuments.Count} open document(s) before continuing?",
+            "Unsaved documents", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (answer == MessageBoxResult.Cancel) return false;
-        if (answer == MessageBoxResult.Yes) return SaveCurrentFile();
+        if (answer == MessageBoxResult.Yes)
+        {
+            foreach (var document in dirtyDocuments)
+                if (!SaveDocument(document)) return false;
+        }
         return true;
     }
 
@@ -669,7 +787,12 @@ public partial class MainWindow : Window
                         {
                             _monacoText = value.GetString() ?? string.Empty;
                             _isDirty = _currentFile is not null;
-                            if (_isDirty) CurrentFileText.Text = $"{Path.GetFileName(_currentFile)} •";
+                            if (_currentDocument is not null)
+                            {
+                                _currentDocument.Content = _monacoText;
+                                _currentDocument.IsDirty = _isDirty;
+                            }
+                            if (_isDirty) CurrentFileText.Text = _currentDocument?.DisplayName ?? (Path.GetFileName(_currentFile) + " •");
                         }
                     }
                     else if (type == "lsp" && message.TryGetProperty("payload", out var lspPayload))
@@ -1728,6 +1851,20 @@ public partial class MainWindow : Window
         public double RotationX { get; set; } public double RotationY { get; set; } public double RotationZ { get; set; }
         public SceneKeyframe Clone() => (SceneKeyframe)MemberwiseClone();
     }
+    private sealed class OpenDocument : INotifyPropertyChanged
+    {
+        private bool _isDirty;
+        public string FilePath { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public bool IsDirty
+        {
+            get => _isDirty;
+            set { if (_isDirty != value) { _isDirty = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDirty))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName))); } }
+        }
+        public string DisplayName => Path.GetFileName(FilePath) + (IsDirty ? "  •" : string.Empty);
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
     private sealed class VertexEditRow : INotifyPropertyChanged
     {
         private double _x, _y, _z;
