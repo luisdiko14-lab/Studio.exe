@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -10,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using StudioApp.Models;
 using StudioApp.Services;
@@ -23,6 +25,12 @@ public partial class MainWindow : Window
     private readonly List<ExplorerEntry> _explorerEntries = [];
     private readonly List<string> _sceneNames = [];
     private readonly List<SceneObject> _scene = [];
+    private readonly ObservableCollection<VertexEditRow> _vertexRows = [];
+    private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+    private StdioProtocolProcess? _languageServer, _debugAdapter;
+    private string? _languageServerId, _documentUri;
+    private int _documentVersion;
+    private bool _isUpdatingTimeline;
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
     private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;
@@ -36,6 +44,8 @@ public partial class MainWindow : Window
         _settings = _settingsService.Load();
         ExplorerList.ItemsSource = _explorerEntries;
         SceneList.ItemsSource = _sceneNames;
+        VertexGrid.ItemsSource = _vertexRows;
+        _animationTimer.Tick += AnimationTimer_Tick;
         WizardRoot.Visibility = _settings.SetupCompleted ? Visibility.Collapsed : Visibility.Visible;
         WorkspaceRoot.Visibility = _settings.SetupCompleted ? Visibility.Visible : Visibility.Collapsed;
         StudioNameInput.Text = _settings.StudioName;
@@ -43,6 +53,7 @@ public partial class MainWindow : Window
         DefaultFolderInput.Text = _settings.DefaultProjectDirectory;
         ApplyBranding();
         RefreshExtensionStatus();
+        RefreshLanguageServerStatus();
         _terminal.OutputReceived += AppendTerminal;
         if (_settings.SetupCompleted) InitializeViewport();
     }
@@ -439,29 +450,47 @@ public partial class MainWindow : Window
 
     private void Debug_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentFile is null)
-        {
-            MessageBox.Show("Open a Python or JavaScript file before starting the debugger.", "No debug target");
-            return;
-        }
+        if (_currentFile is null) { MessageBox.Show("Open a Python or JavaScript file before starting the debugger.", "No debug target"); return; }
         if (_isDirty && !SaveCurrentFile()) return;
         var extension = Path.GetExtension(_currentFile).ToLowerInvariant();
-        var file = _currentFile.Replace("'", "''");
-        var directory = (Path.GetDirectoryName(_currentFile) ?? Environment.CurrentDirectory).Replace("'", "''");
-        string command;
-        if (extension == ".py")
-            command = $"Set-Location -LiteralPath '{directory}'; python -m pdb '{file}'";
-        else if (extension is ".js" or ".mjs" or ".cjs")
-            command = $"Set-Location -LiteralPath '{directory}'; node inspect '{file}'";
-        else
+        if (extension != ".py")
         {
-            MessageBox.Show("Interactive debugging is currently available for Python (pdb) and Node.js (node inspect). C# builds can be run with the Build command.", "Debugger support");
+            if (extension is ".js" or ".mjs" or ".cjs")
+            {
+                var file = _currentFile.Replace("'", "''");
+                var directory = (Path.GetDirectoryName(_currentFile) ?? Environment.CurrentDirectory).Replace("'", "''");
+                ConPtyTerminal.StartupCommandLine = "pwsh.exe -NoExit -Command \"Set-Location -LiteralPath '" + directory + "'; node inspect '" + file + "'\"";
+                ConPtyTerminal.RestartTerm(); WorkspaceTabs.SelectedItem = TerminalTab;
+                StatusText.Text = "Node.js CLI debugger started · cont, next, step, out, repl, list, quit";
+                return;
+            }
+            MessageBox.Show("The graphical DAP debugger currently supports Python through debugpy. Node.js uses its interactive node inspect debugger.", "Debugger support");
             return;
         }
-        ConPtyTerminal.StartupCommandLine = "pwsh.exe -NoExit -Command \"" + command.Replace("\"", "\\\"") + "\"";
-        ConPtyTerminal.RestartTerm();
-        WorkspaceTabs.SelectedItem = TerminalTab;
-        StatusText.Text = extension == ".py" ? "Python debugger started · use pdb commands: n, s, c, p, b, q" : "Node debugger started · use node inspector commands: cont, next, step, repl, list, quit";
+        try
+        {
+            var python = FindTool("python.exe", "python");
+            if (python is null) throw new FileNotFoundException("Python was not found on PATH.");
+            _debugAdapter?.Dispose();
+            _debugAdapter = new StdioProtocolProcess(python, new[] { "-m", "debugpy.adapter" },
+                _projectRoot ?? Path.GetDirectoryName(_currentFile)!);
+            var adapter = _debugAdapter;
+            adapter.MessageReceived += json => PostProtocolMessage("dapMessage", json);
+            adapter.DiagnosticReceived += line => Dispatcher.BeginInvoke(() => AppendTerminal("[DAP] " + line));
+            adapter.Exited += () => Dispatcher.BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_debugAdapter, adapter)) _debugAdapter = null;
+                StatusText.Text = "Python debug adapter stopped";
+            });
+            var debugTarget = new { program = Path.GetFullPath(_currentFile), cwd = _projectRoot ?? Path.GetDirectoryName(_currentFile)!, python };
+            _ = MonacoEditor.ExecuteScriptAsync("window.studioStartDap(" + JsonSerializer.Serialize(debugTarget) + ");");
+            WorkspaceTabs.SelectedItem = MonacoTab;
+            StatusText.Text = "Starting Python DAP session…";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Could not start the Python DAP adapter. Install Python debugpy using Extensions → Install / Update.\n\n" + ex.Message, "Debugger");
+        }
     }
 
     private void Build_Click(object sender, RoutedEventArgs e)
@@ -522,7 +551,32 @@ public partial class MainWindow : Window
             await MonacoEditor.EnsureCoreWebView2Async();
             MonacoEditor.CoreWebView2.WebMessageReceived += (_, e) =>
             {
-                try { var message = JsonDocument.Parse(e.WebMessageAsJson).RootElement; if (message.TryGetProperty("text", out var value)) { _monacoText = value.GetString() ?? string.Empty; _isDirty = _currentFile is not null; if (_isDirty) CurrentFileText.Text = $"{Path.GetFileName(_currentFile)} •"; } } catch { }
+                try
+                {
+                    using var document = JsonDocument.Parse(e.WebMessageAsJson);
+                    var message = document.RootElement;
+                    var type = message.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+                    if (type == "text")
+                    {
+                        if (message.TryGetProperty("text", out var value))
+                        {
+                            _monacoText = value.GetString() ?? string.Empty;
+                            _isDirty = _currentFile is not null;
+                            if (_isDirty) CurrentFileText.Text = $"{Path.GetFileName(_currentFile)} •";
+                        }
+                    }
+                    else if (type == "lsp" && message.TryGetProperty("payload", out var lspPayload))
+                    {
+                        if (_languageServer is { IsRunning: true }) _ = SendProtocolMessageAsync(_languageServer, lspPayload.GetRawText(), "Language server");
+                    }
+                    else if (type == "dap" && message.TryGetProperty("payload", out var dapPayload))
+                    {
+                        if (_debugAdapter is { IsRunning: true }) _ = SendProtocolMessageAsync(_debugAdapter, dapPayload.GetRawText(), "Debug adapter");
+                    }
+                    else if (type == "editorStatus" && message.TryGetProperty("text", out var status))
+                        Dispatcher.BeginInvoke(() => StatusText.Text = status.GetString() ?? "Editor ready");
+                }
+                catch (Exception ex) { AppendTerminal("Web editor bridge: " + ex.Message); }
             };
             var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "monaco.html");
             if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco web assets were not published.", htmlPath);
@@ -539,8 +593,136 @@ public partial class MainWindow : Window
     private async Task SetMonacoTextAsync(string text, string? path)
     {
         if (!_monacoReady) return;
-        var language = Path.GetExtension(path ?? "").ToLowerInvariant() switch { ".js" or ".mjs" or ".cjs" => "javascript", ".py" => "python", ".cs" => "csharp", ".json" => "json", ".xml" or ".xaml" => "xml", _ => "plaintext" };
-        await MonacoEditor.ExecuteScriptAsync("window.studioSetValue(" + JsonSerializer.Serialize(text) + "," + JsonSerializer.Serialize(language) + ");");
+        var language = Path.GetExtension(path ?? "").ToLowerInvariant() switch
+        {
+            ".js" or ".mjs" or ".cjs" or ".ts" or ".tsx" => "javascript",
+            ".py" => "python", ".cs" => "csharp", ".csproj" => "xml",
+            ".json" => "json", ".xml" or ".xaml" => "xml", _ => "plaintext"
+        };
+        var uri = path is null ? "untitled:studio-new-file" : new Uri(Path.GetFullPath(path)).AbsoluteUri;
+        _documentUri = uri;
+        await MonacoEditor.ExecuteScriptAsync("window.studioSetDocument(" +
+            JsonSerializer.Serialize(text) + "," + JsonSerializer.Serialize(language) + "," + JsonSerializer.Serialize(uri) + ");");
+        await StartLanguageServerForFileAsync(path, language);
+    }
+
+    private async Task StartLanguageServerForFileAsync(string? path, string language)
+    {
+        var serverId = language switch { "python" => "pyright", "csharp" => "csharp-ls", _ => null };
+        if (serverId is null)
+        {
+            _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
+            return;
+        }
+        if (path is null) return;
+        var root = _projectRoot ?? Path.GetDirectoryName(path) ?? Environment.CurrentDirectory;
+        if (_languageServer is { IsRunning: true } && _languageServerId == serverId)
+        {
+            var close = JsonSerializer.Serialize(new { jsonrpc = "2.0", method = "textDocument/didClose", @params = new { textDocument = new { uri = _documentUri } } });
+            try { await _languageServer.SendAsync(close); } catch { }
+            var open = JsonSerializer.Serialize(new { jsonrpc = "2.0", method = "textDocument/didOpen", @params = new { textDocument = new { uri = _documentUri, languageId = language, version = ++_documentVersion, text = _monacoText } } });
+            try { await _languageServer.SendAsync(open); } catch { }
+            return;
+        }
+
+        _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
+        var executable = serverId == "pyright" ? FindTool("pyright-langserver.cmd", "pyright-langserver.exe", "pyright-langserver")
+                                               : FindTool("csharp-ls.exe", "csharp-ls");
+        if (executable is null)
+        {
+            LanguageServerStatus.Text = serverId == "pyright"
+                ? "Pyright is not installed. Click Install / Update to add it (Node.js + npm required)."
+                : "C# language server is not installed. Click Install / Update to add csharp-ls (.NET SDK required).";
+            return;
+        }
+
+        try
+        {
+            var arguments = serverId == "pyright" ? new[] { "--stdio" } : Array.Empty<string>();
+            var processExecutable = executable;
+            if (executable.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || executable.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+            {
+                processExecutable = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+                arguments = new[] { "/d", "/s", "/c", "\"" + executable + "\" --stdio" };
+            }
+            var session = new StdioProtocolProcess(processExecutable, arguments, root);
+            _languageServer = session; _languageServerId = serverId;
+            session.MessageReceived += json => PostProtocolMessage("lspMessage", json);
+            session.DiagnosticReceived += line => Dispatcher.BeginInvoke(() => { AppendTerminal("[LSP] " + line); });
+            session.Exited += () => Dispatcher.BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_languageServer, session)) { _languageServer = null; _languageServerId = null; }
+                LanguageServerStatus.Text = serverId + " language server stopped.";
+            });
+            var connection = new
+            {
+                language,
+                uri = _documentUri,
+                rootUri = new Uri(Path.GetFullPath(root) + Path.DirectorySeparatorChar).AbsoluteUri
+            };
+            await MonacoEditor.ExecuteScriptAsync("window.studioConnectLsp(" + JsonSerializer.Serialize(connection) + ");");
+            LanguageServerStatus.Text = (serverId == "pyright" ? "Pyright" : "C# Roslyn via csharp-ls") + " language server starting…";
+        }
+        catch (Exception ex)
+        {
+            LanguageServerStatus.Text = "Could not start " + serverId + ": " + ex.Message;
+            AppendTerminal("[LSP] " + ex.Message);
+        }
+    }
+
+    private string? FindTool(params string[] names)
+    {
+        var directories = new List<string>();
+        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        directories.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+        directories.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dotnet", "tools"));
+        directories.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm"));
+        foreach (var directory in directories.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (var name in names)
+            {
+                var candidate = Path.Combine(directory.Trim('"'), name);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
+    private async Task SendProtocolMessageAsync(StdioProtocolProcess session, string json, string label)
+    {
+        try { await session.SendAsync(json); }
+        catch (Exception ex) { Dispatcher.BeginInvoke(() => AppendTerminal("[" + label + "] " + ex.Message)); }
+    }
+
+    private void PostProtocolMessage(string type, string json)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (MonacoEditor.CoreWebView2 is null) return;
+            try { MonacoEditor.CoreWebView2.PostWebMessageAsJson("{\"type\":\"" + type + "\",\"payload\":" + json + "}"); }
+            catch (Exception ex) { AppendTerminal("Editor protocol event: " + ex.Message); }
+        });
+    }
+
+    private void RefreshLanguageServerStatus()
+    {
+        var pyright = FindTool("pyright-langserver.cmd", "pyright-langserver.exe", "pyright-langserver") is not null;
+        var csharp = FindTool("csharp-ls.exe", "csharp-ls") is not null;
+        LanguageServerStatus.Text = $"Pyright: {(pyright ? "installed" : "not installed")} · C# language server: {(csharp ? "installed" : "not installed")} · Python debugger: install debugpy";
+    }
+
+    private void InstallLanguageTools_Click(object sender, RoutedEventArgs e)
+    {
+        var info = new ProcessStartInfo
+        {
+            FileName = "cmd.exe", UseShellExecute = false, RedirectStandardOutput = true,
+            RedirectStandardError = true, CreateNoWindow = true,
+            WorkingDirectory = Directory.Exists(_projectRoot) ? _projectRoot! : Environment.CurrentDirectory
+        };
+        info.ArgumentList.Add("/d"); info.ArgumentList.Add("/c");
+        info.ArgumentList.Add("npm install --global pyright && (dotnet tool update --global csharp-ls || dotnet tool install --global csharp-ls) && python -m pip install --user debugpy");
+        StartToolProcess(info, "Language tooling install");
+        WorkspaceTabs.SelectedItem = ExtensionsTab;
     }
 
     private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
@@ -919,7 +1101,7 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (!ConfirmDiscardOrSave()) { e.Cancel = true; return; }
-        _terminal.Dispose();
+        _terminal.Dispose(); _languageServer?.Dispose(); _debugAdapter?.Dispose(); _animationTimer.Stop();
         try { if (_runProcess is { HasExited: false }) _runProcess.Kill(entireProcessTree: true); } catch { }
     }
 
