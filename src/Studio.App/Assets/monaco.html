@@ -110,7 +110,7 @@ require(["vs/editor/editor.main"],function(){
     if(!lsp.ready && method!=="initialize") return Promise.resolve(null);
     const id=lsp.seq++;
     return new Promise(resolve=>{
-      const timer=setTimeout(()=>{lsp.pending.delete(id);resolve(null);},3500);
+      const timer=setTimeout(()=>{lsp.pending.delete(id);resolve(null);},15000);
       lsp.pending.set(id,{resolve,timer,method});
       sendHost("lsp",{jsonrpc:"2.0",id,method,params});
     });
@@ -127,6 +127,24 @@ require(["vs/editor/editor.main"],function(){
     if(Array.isArray(value))return value.map(x=>x.value||x.language||"").join("\\n");
     return value.value||"";
   }
+  function lspWorkspaceEdit(workspaceEdit){
+    if(!workspaceEdit)return {edits:[]};
+    const edits=[];
+    if(workspaceEdit.changes){
+      for(const [uri,items] of Object.entries(workspaceEdit.changes)){
+        for(const item of items||[]){
+          edits.push({resource:monaco.Uri.parse(uri),edit:{range:lspRange(item.range),text:item.newText}});
+        }
+      }
+    }
+    for(const change of workspaceEdit.documentChanges||[]){
+      if(change.textDocument&&change.edits){
+        const uri=monaco.Uri.parse(change.textDocument.uri);
+        for(const item of change.edits)edits.push({resource:uri,edit:{range:lspRange(item.range),text:item.newText}});
+      }
+    }
+    return {edits};
+  }
   function lspCompletion(result,position){
     if(!result)return null;
     const list=Array.isArray(result)?result:(result.items||[]);
@@ -136,7 +154,8 @@ require(["vs/editor/editor.main"],function(){
     return {isIncomplete:!!result.isIncomplete,suggestions:list.map(item=>({
       label:item.label,kind:kindMap[item.kind]||K.Text,detail:item.detail,
       documentation:lspMarkup(item.documentation),sortText:item.sortText,filterText:item.filterText,
-      insertText:item.insertText||item.label,
+      insertText:item.textEdit&&item.textEdit.newText||item.insertText||item.label,
+      additionalTextEdits:item.additionalTextEdits&&item.additionalTextEdits.map(edit=>({range:lspRange(edit.range),text:edit.newText})),
       insertTextRules:item.insertTextFormat===2?R.InsertAsSnippet:undefined,
       range:item.textEdit&&item.textEdit.range?lspRange(item.textEdit.range):fallbackRange
     }))};
@@ -385,7 +404,75 @@ require(["vs/editor/editor.main"],function(){
         return null;
       }
     });
+
+    monaco.languages.registerReferenceProvider(language,{
+      async provideReferences(model,position,context){
+        if(!lsp.ready||!lsp.uri)return [];
+        const result=await lspRequest("textDocument/references",{
+          textDocument:{uri:lsp.uri},position:lspPosition(position),
+          context:{includeDeclaration:!!context.includeDeclaration}
+        });
+        return (result||[]).map(item=>({uri:monaco.Uri.parse(item.uri),range:lspRange(item.range)}));
+      }
+    });
+
+    monaco.languages.registerRenameProvider(language,{
+      async provideRenameEdits(model,position,newName){
+        if(!lsp.ready||!lsp.uri)return {edits:[]};
+        const result=await lspRequest("textDocument/rename",{
+          textDocument:{uri:lsp.uri},position:lspPosition(position),newName
+        });
+        return lspWorkspaceEdit(result);
+      }
+    });
+
+    monaco.languages.registerDocumentFormattingEditProvider(language,{
+      async provideDocumentFormattingEdits(model,options){
+        if(!lsp.ready||!lsp.uri)return [];
+        const result=await lspRequest("textDocument/formatting",{
+          textDocument:{uri:lsp.uri},options:{tabSize:options.tabSize,insertSpaces:options.insertSpaces}
+        });
+        return (result||[]).map(edit=>({range:lspRange(edit.range),text:edit.newText}));
+      }
+    });
+
+    monaco.languages.registerCodeActionProvider(language,{
+      async provideCodeActions(model,range,context){
+        if(!lsp.ready||!lsp.uri)return {actions:[],dispose(){}};
+        const diagnostics=(context.markers||[]).map(marker=>({
+          range:{
+            start:{line:marker.startLineNumber-1,character:marker.startColumn-1},
+            end:{line:marker.endLineNumber-1,character:marker.endColumn-1}
+          },
+          message:marker.message,
+          severity:marker.severity===monaco.MarkerSeverity.Error?1:
+            marker.severity===monaco.MarkerSeverity.Warning?2:
+            marker.severity===monaco.MarkerSeverity.Info?3:4,
+          source:marker.source
+        }));
+        const result=await lspRequest("textDocument/codeAction",{
+          textDocument:{uri:lsp.uri},
+          range:{start:lspPosition(range.getStartPosition()),end:lspPosition(range.getEndPosition())},
+          context:{diagnostics,only:(context.only||[]).map(kind=>kind.value)}
+        });
+        const actions=(result||[]).map(action=>({
+          title:action.title,
+          kind:action.kind,
+          diagnostics,
+          edit:lspWorkspaceEdit(action.edit),
+          command:action.command?{
+            id:lspExecuteCommandId,
+            title:action.command.title,
+            arguments:[{command:action.command.command,arguments:action.command.arguments||[]}]
+          }:undefined
+        }));
+        return {actions,dispose(){}};
+      }
+    });
   }
+  const lspExecuteCommandId=editor.addCommand(0,(_ctx,payload)=>{
+    if(payload) lspRequest("workspace/executeCommand",payload);
+  },"studio-lsp-command");
   const dap={seq:1,pending:new Map(),target:null,threadId:1,frameId:null,ready:false,configured:false,breakpoints:new Set(),lineDecoration:[]};
   const byId=id=>document.getElementById(id);
   function setDebugStatus(text){byId("debugger-status").textContent=text;}
