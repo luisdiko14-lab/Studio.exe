@@ -178,9 +178,12 @@
                   <UniformGrid Columns="3"><TextBox x:Name="ObjectX" Text="0"/><TextBox x:Name="ObjectY" Text="0"/><TextBox x:Name="ObjectZ" Text="0"/></UniformGrid>
                   <TextBlock Text="Scale (X / Y / Z)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
                   <UniformGrid Columns="3"><TextBox x:Name="ScaleX" Text="1"/><TextBox x:Name="ScaleY" Text="1"/><TextBox x:Name="ScaleZ" Text="1"/></UniformGrid>
-                  <TextBlock Text="Y rotation (degrees)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
-                  <TextBox x:Name="RotationY" Text="0"/>
-                  <Button Content="Apply transforms" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,14,3,3"/>
+                  <TextBlock Text="Rotation X / Y / Z (degrees)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <UniformGrid Columns="3"><TextBox x:Name="RotationX" Text="0"/><TextBox x:Name="RotationY" Text="0"/><TextBox x:Name="RotationZ" Text="0"/></UniformGrid>
+                  <TextBlock Text="Material color (#RRGGBB)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <TextBox x:Name="ObjectColor" Text="#718EFF"/>
+                  <Button Content="Apply transforms + material" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,10,3,3"/>
+                  <Button Content="Subdivide selected mesh" Click="SubdivideMesh_Click" Margin="3,3,3,3"/>
                   <TextBlock Text="Orbit: left-drag · Pan: right-drag · Zoom: mouse wheel. Helix viewport adds a grid and view cube."
                              Foreground="#8996AA" TextWrapping="Wrap" FontSize="11" Margin="4,14,4,0"/>
                 </StackPanel>
