@@ -401,7 +401,8 @@ require(["vs/editor/editor.main"],function(){
   function setBreakpoints(){
     if(!dap.ready||!dap.target)return;
     const lines=[...dap.breakpoints].sort((a,b)=>a-b).map(line=>({line,verified:false}));
-    dapRequest("setBreakpoints",{source:{name:dap.target.program.split(/[\\/]/).pop(),path:dap.target.program},breakpoints:lines,sourceModified:false})
+    const sourcePath=dap.target.sourcePath||dap.target.program;
+    dapRequest("setBreakpoints",{source:{name:sourcePath.split(/[\\/]/).pop(),path:sourcePath},breakpoints:lines,sourceModified:false})
       .then(result=>{if(result&&result.breakpoints)result.breakpoints.forEach((bp,i)=>{if(bp.verified)setDebugStatus("Breakpoint verified · line "+lines[i].line);});});
   }
   function toggleBreakpoint(line){
@@ -473,7 +474,7 @@ require(["vs/editor/editor.main"],function(){
       linesStartAt1:true,columnsStartAt1:true,supportsVariableType:true,
       supportsRunInTerminalRequest:false,supportsProgressReporting:true
     });
-    if(!initialized){setDebugStatus("debugpy did not respond to initialize");return;}
+    if(!initialized){setDebugStatus("The selected DAP adapter did not respond to initialize");return;}
     const launchConfiguration=target.launch||{
       name:"Launch Python",type:"python",request:"launch",program:target.program,cwd:target.cwd,
       python:target.python,console:"internalConsole",justMyCode:true,stopOnEntry:false,
