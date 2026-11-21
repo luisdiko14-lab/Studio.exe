@@ -531,6 +531,7 @@ public partial class MainWindow : Window
                 StatusText.Text = $"{operation} finished (exit {process.ExitCode})";
                 if (ReferenceEquals(_runProcess, process)) _runProcess = null;
                 process.Dispose();
+                if (operation == "Language tooling install") RefreshLanguageServerStatus();
             }));
             process.Start(); _runProcess = process;
             process.BeginOutputReadLine(); process.BeginErrorReadLine();
@@ -625,7 +626,12 @@ public partial class MainWindow : Window
             if (_monacoReady) _ = MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
             return;
         }
-        if (path is null) return;
+        if (path is null)
+        {
+            _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
+            if (_monacoReady) _ = MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
+            return;
+        }
         var root = _projectRoot ?? Path.GetDirectoryName(path) ?? Environment.CurrentDirectory;
         if (_languageServer is { IsRunning: true } && _languageServerId == serverId)
         {
@@ -633,10 +639,12 @@ public partial class MainWindow : Window
         }
 
         _languageServer?.Dispose(); _languageServer = null; _languageServerId = null;
+        if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
         var executable = serverId == "pyright" ? FindTool("pyright-langserver.cmd", "pyright-langserver.exe", "pyright-langserver")
                                                : FindTool("csharp-ls.exe", "csharp-ls");
         if (executable is null)
         {
+            if (_monacoReady) await MonacoEditor.ExecuteScriptAsync("window.studioDisconnectLsp();");
             LanguageServerStatus.Text = serverId == "pyright"
                 ? "Pyright is not installed. Click Install / Update to add it (Node.js + npm required)."
                 : "C# language server is not installed. Click Install / Update to add csharp-ls (.NET SDK required).";
@@ -734,7 +742,7 @@ public partial class MainWindow : Window
 
     private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
     {
-        if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It also requires internet access to load its editor engine.", "Monaco Editor"); return; }
+        if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It is bundled locally and does not require internet access.", "Monaco Editor"); return; }
         if (WorkspaceTabs.SelectedItem == EditorTab) _monacoText = EditorText.Text;
         await SetMonacoTextAsync(_monacoText, _currentFile);
         WorkspaceTabs.SelectedItem = MonacoTab;
