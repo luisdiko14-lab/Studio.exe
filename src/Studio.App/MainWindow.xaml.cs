@@ -1490,9 +1490,9 @@ public partial class MainWindow : Window
         var bTop = positions.Count; positions.Add(b + offset);
         var cTop = positions.Count; positions.Add(c + offset);
         var triangles = new Int32Collection();
+        // Keep the original triangle as the base; the translated cap and side faces form the extrusion.
         for (var i = 0; i + 2 < sourceIndices.Count; i += 3)
         {
-            if (i == start) continue;
             triangles.Add(sourceIndices[i]); triangles.Add(sourceIndices[i + 1]); triangles.Add(sourceIndices[i + 2]);
         }
 
