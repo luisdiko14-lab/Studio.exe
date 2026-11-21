@@ -191,6 +191,12 @@
                   <TextBox x:Name="OpacityInput" Text="1"/>
                   <Button Content="Apply transforms + material" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,10,3,3"/>
                   <Button Content="Subdivide selected mesh" Click="SubdivideMesh_Click" Margin="3,3,3,3"/>
+                  <TextBlock Text="EXTRUDE FACE" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,10,3,3"/>
+                  <TextBlock Text="Triangle index (0-based)" Foreground="#9AA5B5" Margin="3,2,3,0"/>
+                  <TextBox x:Name="ExtrudeTriangleIndex" Text="0"/>
+                  <TextBlock Text="Extrusion distance" Foreground="#9AA5B5" Margin="3,4,3,0"/>
+                  <TextBox x:Name="ExtrudeDistanceInput" Text="0.25"/>
+                  <Button Content="Extrude selected triangle" Click="ExtrudeFace_Click" Margin="3,4,3,3"/>
                   <Button Content="Smooth mesh" Click="SmoothMesh_Click" Margin="3,3,3,3"/>
                   <Button Content="Flip face normals" Click="FlipNormals_Click" Margin="3,3,3,3"/>
                   <TextBlock Text="MESH VERTICES" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,12,3,4"/>
