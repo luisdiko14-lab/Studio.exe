@@ -579,11 +579,17 @@ public partial class MainWindow : Window
                 }
                 catch (Exception ex) { AppendTerminal("Web editor bridge: " + ex.Message); }
             };
-            var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "monaco.html");
-            if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco web assets were not published.", htmlPath);
+            var assetsPath = Path.Combine(AppContext.BaseDirectory, "Assets");
+            var htmlPath = Path.Combine(assetsPath, "monaco.html");
+            var loaderPath = Path.Combine(assetsPath, "monaco", "vs", "loader.js");
+            if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco host page was not published.", htmlPath);
+            if (!File.Exists(loaderPath)) throw new FileNotFoundException("Bundled Monaco assets are missing. Rebuild with Node.js/npm and scripts/prepare-monaco.mjs.", loaderPath);
+            MonacoEditor.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "studio.local", assetsPath,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
             var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             MonacoEditor.CoreWebView2.NavigationCompleted += (_, args) => navigation.TrySetResult(args.IsSuccess);
-            MonacoEditor.NavigateToString(File.ReadAllText(htmlPath));
+            MonacoEditor.Navigate("https://studio.local/monaco.html");
             if (!await navigation.Task.WaitAsync(TimeSpan.FromSeconds(30))) throw new InvalidOperationException("Monaco page failed to load.");
             _monacoReady = true;
             await SetMonacoTextAsync(_monacoText, _currentFile);
