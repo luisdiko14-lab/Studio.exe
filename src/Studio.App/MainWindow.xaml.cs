@@ -1268,6 +1268,139 @@ public partial class MainWindow : Window
         StatusText.Text = "Exported " + Path.GetFileName(dialog.FileName);
     }
     
+    private byte[] ExportGlb()
+    {
+        using var binary = new MemoryStream();
+        using var writer = new BinaryWriter(binary, Encoding.UTF8, leaveOpen: true);
+        var bufferViews = new List<object>();
+        var accessors = new List<object>();
+        var meshes = new List<object>();
+        var nodes = new List<object>();
+        var materials = new List<object>();
+        var nodeIndices = new List<int>();
+
+        foreach (var item in _scene)
+        {
+            var indices = item.Mesh.TriangleIndices;
+            var expandedVertexCount = (indices.Count / 3) * 3;
+            if (expandedVertexCount == 0) continue;
+
+            AlignBuffer(binary, writer);
+            var positionOffset = checked((int)binary.Position);
+            var min = new[] { double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity };
+            var max = new[] { double.NegativeInfinity, double.NegativeInfinity, double.NegativeInfinity };
+            var worldPositions = new List<Point3D>(expandedVertexCount);
+
+            for (var i = 0; i + 2 < indices.Count; i += 3)
+            {
+                foreach (var index in new[] { indices[i], indices[i + 1], indices[i + 2] })
+                {
+                    var point = item.Model.Transform.Transform(item.Mesh.Positions[index]);
+                    worldPositions.Add(point);
+                    min[0] = Math.Min(min[0], point.X); min[1] = Math.Min(min[1], point.Y); min[2] = Math.Min(min[2], point.Z);
+                    max[0] = Math.Max(max[0], point.X); max[1] = Math.Max(max[1], point.Y); max[2] = Math.Max(max[2], point.Z);
+                    writer.Write((float)point.X); writer.Write((float)point.Y); writer.Write((float)point.Z);
+                }
+            }
+
+            var positionLength = checked((int)binary.Position - positionOffset);
+            var positionView = bufferViews.Count;
+            bufferViews.Add(new { buffer = 0, byteOffset = positionOffset, byteLength = positionLength, target = 34962 });
+            var positionAccessor = accessors.Count;
+            accessors.Add(new { bufferView = positionView, componentType = 5126, count = expandedVertexCount, type = "VEC3", min, max });
+
+            AlignBuffer(binary, writer);
+            var normalOffset = checked((int)binary.Position);
+            for (var i = 0; i + 2 < worldPositions.Count; i += 3)
+            {
+                var a = worldPositions[i]; var b = worldPositions[i + 1]; var c = worldPositions[i + 2];
+                var normal = Vector3D.CrossProduct(b - a, c - a);
+                if (normal.Length > 0) normal.Normalize();
+                for (var vertex = 0; vertex < 3; vertex++)
+                {
+                    writer.Write((float)normal.X); writer.Write((float)normal.Y); writer.Write((float)normal.Z);
+                }
+            }
+            var normalLength = checked((int)binary.Position - normalOffset);
+            var normalView = bufferViews.Count;
+            bufferViews.Add(new { buffer = 0, byteOffset = normalOffset, byteLength = normalLength, target = 34962 });
+            var normalAccessor = accessors.Count;
+            accessors.Add(new { bufferView = normalView, componentType = 5126, count = expandedVertexCount, type = "VEC3" });
+
+            var color = (Color)(ColorConverter.ConvertFromString(item.ColorHex) ?? Colors.SlateGray);
+            var materialIndex = materials.Count;
+            materials.Add(new
+            {
+                name = item.Name + " Material",
+                pbrMetallicRoughness = new
+                {
+                    baseColorFactor = new[] { color.R / 255.0, color.G / 255.0, color.B / 255.0, color.A / 255.0 * item.Opacity },
+                    metallicFactor = 0.0,
+                    roughnessFactor = Math.Clamp(1.0 - item.SpecularPower / 160.0, 0.05, 1.0)
+                },
+                alphaMode = item.Opacity < 1 ? "BLEND" : "OPAQUE",
+                doubleSided = true
+            });
+
+            var meshIndex = meshes.Count;
+            meshes.Add(new
+            {
+                name = item.Name,
+                primitives = new[]
+                {
+                    new
+                    {
+                        attributes = new Dictionary<string, int> { ["POSITION"] = positionAccessor, ["NORMAL"] = normalAccessor },
+                        material = materialIndex,
+                        mode = 4
+                    }
+                }
+            });
+            nodeIndices.Add(nodes.Count);
+            nodes.Add(new { name = item.Name, mesh = meshIndex });
+        }
+
+        if (meshes.Count == 0) throw new InvalidDataException("No exportable triangles exist in the scene.");
+        var sceneRoot = new
+        {
+            asset = new { version = "2.0", generator = "Studio.exe" },
+            scene = 0,
+            scenes = new[] { new { nodes = nodeIndices } },
+            nodes,
+            meshes,
+            materials,
+            buffers = new[] { new { byteLength = binary.Length } },
+            bufferViews,
+            accessors
+        };
+
+        var json = JsonSerializer.SerializeToUtf8Bytes(sceneRoot);
+        var jsonPadding = (4 - json.Length % 4) % 4;
+        var binBytes = binary.ToArray();
+        var binPadding = (4 - binBytes.Length % 4) % 4;
+        var totalLength = checked(12 + 8 + json.Length + jsonPadding + 8 + binBytes.Length + binPadding);
+
+        using var output = new MemoryStream(totalLength);
+        using var glb = new BinaryWriter(output, Encoding.UTF8, leaveOpen: true);
+        glb.Write(0x46546C67); // glTF magic
+        glb.Write(2);
+        glb.Write(totalLength);
+        glb.Write(json.Length + jsonPadding);
+        glb.Write(0x4E4F534A); // JSON chunk
+        glb.Write(json);
+        for (var i = 0; i < jsonPadding; i++) glb.Write((byte)0x20);
+        glb.Write(binBytes.Length + binPadding);
+        glb.Write(0x004E4942); // BIN chunk
+        glb.Write(binBytes);
+        for (var i = 0; i < binPadding; i++) glb.Write((byte)0);
+        return output.ToArray();
+    }
+
+    private static void AlignBuffer(Stream stream, BinaryWriter writer)
+    {
+        while (stream.Position % 4 != 0) writer.Write((byte)0);
+    }
+
     private string ExportObj()
     {
         var sb = new StringBuilder("# Studio.exe OBJ export\n"); var offset = 1;
