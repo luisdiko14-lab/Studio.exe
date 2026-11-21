@@ -10,7 +10,7 @@ Studio.exe is a Windows desktop development workspace built with C# and WPF on .
 - Python and Node.js interactive command-line debugging: Python uses `pdb`; JavaScript uses Node's `node inspect` CLI debugger. Debug sessions run in the ConPTY terminal.
 - Build and run commands for JavaScript, Python, and .NET projects. Process output and exit codes are streamed into the workspace terminal.
 - Real PowerShell or cmd.exe sessions through the Windows Terminal ConPTY control. Commands run as the current Windows user.
-- Interactive HelixToolkit 3D viewport with orbit/pan/zoom, grid, axes, view cube, cube/sphere/cylinder/cone/plane/torus primitives, object transforms, duplicate/delete, JSON scene persistence, and OBJ/ASCII STL export.
+- Interactive HelixToolkit 3D viewport with orbit/pan/zoom, grid, axes, view cube, cube/sphere/cylinder/cone/plane/torus primitives, XYZ transforms, per-object material colors, triangle-mesh subdivision, duplicate/delete, full geometry/material scene persistence, and OBJ/ASCII STL export.
 - PowerShell setup/build/run scripts.
 - GitHub Actions CI on pushes and pull requests, plus a tagged-release workflow that creates a self-contained Windows x64 publish and attaches the executable and portable ZIP to a GitHub Release.
 
@@ -66,7 +66,7 @@ This repository contains a functional early-stage IDE foundation, not a complete
 - Python and Node debugging use their interactive command-line debuggers (`pdb` and `node inspect`). A full Debug Adapter Protocol (DAP) UI with graphical breakpoints, call stack, locals/watch and stepping is not implemented. C# source-level debugging is not wired into the IDE.
 - The terminal is hosted by EasyWindowsTerminalControl around Microsoft's ConPTY backend. Its native HWND surface has WPF airspace limitations.
 - Language integrations are built-in and do not include an extension marketplace or automatic runtime downloads.
-- The 3D editor is a primitive-based scene editor. It supports transform editing, scene save/load and OBJ/ASCII STL export, but not Blender-grade sculpting, arbitrary topology editing, node materials, rigging, animation, or GLB/glTF export.
+- The 3D editor now supports primitive meshes, XYZ transforms, material color assignment, one-step triangle subdivision, geometry-aware scene persistence, and OBJ/ASCII STL export. It is still not Blender-grade: there is no vertex/edge/face selection, sculpting, arbitrary topology tools, node materials, rigging, animation timeline, or GLB/glTF export.
 - Git operations remain available through the shell; there is no dedicated Git UI yet.
 
 ## Repository structure
