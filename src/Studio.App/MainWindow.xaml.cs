@@ -241,7 +241,7 @@ public partial class MainWindow : Window
         {
             name = packageName,
             version = "1.0.0",
-            private = true,
+            @private = true,
             type = "module",
             scripts = new { start = "node index.js" }
         };
