@@ -1006,7 +1006,14 @@ public partial class MainWindow : Window
     private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
     private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
 
-    private void ShowEditor_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = EditorTab;
+    private void ShowEditor_Click(object sender, RoutedEventArgs e)
+    {
+        CaptureActiveDocument();
+        _isLoadingEditor = true;
+        EditorText.Text = _currentDocument?.Content ?? _monacoText;
+        _isLoadingEditor = false;
+        WorkspaceTabs.SelectedItem = EditorTab;
+    }
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
     private void ShowExtensions_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ExtensionsTab;
     private void RefreshExtensionStatus()
