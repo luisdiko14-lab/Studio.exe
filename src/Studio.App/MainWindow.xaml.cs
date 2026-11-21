@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -328,6 +329,114 @@ public partial class MainWindow : Window
         }
         StartToolProcess(info, "Run");
     }
+    private async void CheckSyntax_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentFile is null) { MessageBox.Show("Open a source file before checking it.", "No file selected"); return; }
+        if (_isDirty && !SaveCurrentFile()) return;
+        var extension = Path.GetExtension(_currentFile).ToLowerInvariant();
+        var info = new ProcessStartInfo
+        {
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+            CreateNoWindow = true, WorkingDirectory = Path.GetDirectoryName(_currentFile)!
+        };
+        if (extension is ".js" or ".mjs" or ".cjs")
+        {
+            info.FileName = "node"; info.ArgumentList.Add("--check"); info.ArgumentList.Add(_currentFile);
+        }
+        else if (extension == ".py")
+        {
+            info.FileName = "python"; info.ArgumentList.Add("-m"); info.ArgumentList.Add("py_compile"); info.ArgumentList.Add(_currentFile);
+        }
+        else if (extension == ".csproj")
+        {
+            info.FileName = "dotnet"; info.ArgumentList.Add("build"); info.ArgumentList.Add(_currentFile);
+        }
+        else if (extension == ".cs")
+        {
+            var root = _projectRoot ?? Path.GetDirectoryName(_currentFile)!;
+            var project = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+                .FirstOrDefault(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                                  && !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+            if (project is null) { MessageBox.Show("Open a C# project folder containing a .csproj to check C# diagnostics.", "Project required"); return; }
+            info.FileName = "dotnet"; info.ArgumentList.Add("build"); info.ArgumentList.Add(project);
+            info.WorkingDirectory = Path.GetDirectoryName(project)!;
+        }
+        else
+        {
+            MessageBox.Show("Syntax diagnostics support JavaScript, Python, and C# project files.", "Unsupported file");
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Checking source…";
+            AppendTerminal($"[Diagnostics] {info.FileName} {string.Join(" ", info.ArgumentList)}");
+            using var process = new Process { StartInfo = info };
+            process.Start();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var output = await outputTask;
+            var error = await errorTask;
+            var combined = output + Environment.NewLine + error;
+            foreach (var line in combined.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                AppendTerminal(line);
+
+            var diagnostics = new List<EditorDiagnostic>();
+            if (extension is ".csproj" or ".cs")
+            {
+                var pattern = new Regex(@"(?<file>.+?)\((?<line>\d+),(?<column>\d+)\): (?<level>error|warning) (?<code>[A-Za-z]+\d+): (?<message>.+)", RegexOptions.IgnoreCase);
+                foreach (Match match in pattern.Matches(combined))
+                {
+                    if (!Path.GetFileName(match.Groups["file"].Value).Equals(Path.GetFileName(_currentFile), StringComparison.OrdinalIgnoreCase)) continue;
+                    diagnostics.Add(new EditorDiagnostic(
+                        int.Parse(match.Groups["line"].Value, CultureInfo.InvariantCulture),
+                        int.Parse(match.Groups["column"].Value, CultureInfo.InvariantCulture),
+                        match.Groups["message"].Value,
+                        match.Groups["level"].Value.Equals("error", StringComparison.OrdinalIgnoreCase) ? "Error" : "Warning"));
+                }
+            }
+            else if (extension == ".py")
+            {
+                var match = Regex.Match(combined, @"File ""[^""]+"", line (?<line>\d+)");
+                if (match.Success && process.ExitCode != 0)
+                {
+                    var message = combined.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "Python syntax error";
+                    diagnostics.Add(new EditorDiagnostic(int.Parse(match.Groups["line"].Value, CultureInfo.InvariantCulture), 1, message, "Error"));
+                }
+            }
+            else if (process.ExitCode != 0)
+            {
+                var fileLine = Regex.Match(combined, Regex.Escape(_currentFile) + @":(?<line>\d+)");
+                var line = fileLine.Success ? int.Parse(fileLine.Groups["line"].Value, CultureInfo.InvariantCulture) : 1;
+                var message = combined.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "JavaScript syntax error";
+                diagnostics.Add(new EditorDiagnostic(line, 1, message, "Error"));
+            }
+
+            await SetMonacoDiagnosticsAsync(diagnostics);
+            var errors = diagnostics.Count(x => x.Severity == "Error");
+            var warnings = diagnostics.Count - errors;
+            StatusText.Text = process.ExitCode == 0 ? $"Check passed · {warnings} warning(s)" : $"Check failed · {errors} error(s), {warnings} warning(s)";
+            AppendTerminal($"[Diagnostics complete: exit {process.ExitCode}, {errors} error(s), {warnings} warning(s)]");
+            WorkspaceTabs.SelectedItem = MonacoTab;
+        }
+        catch (Exception ex)
+        {
+            AppendTerminal($"Diagnostics failed: {ex.Message}");
+            StatusText.Text = "Diagnostics failed";
+        }
+    }
+
+    private async Task SetMonacoDiagnosticsAsync(List<EditorDiagnostic> diagnostics)
+    {
+        if (!_monacoReady) return;
+        var json = JsonSerializer.Serialize(diagnostics.Select(d => new
+        {
+            line = d.Line, column = d.Column, message = d.Message, severity = d.Severity
+        }));
+        await MonacoEditor.ExecuteScriptAsync("window.studioSetDiagnostics(" + json + ");");
+    }
+
     private void Debug_Click(object sender, RoutedEventArgs e)
     {
         if (_currentFile is null)
@@ -813,6 +922,8 @@ public partial class MainWindow : Window
         _terminal.Dispose();
         try { if (_runProcess is { HasExited: false }) _runProcess.Kill(entireProcessTree: true); } catch { }
     }
+
+    private sealed record EditorDiagnostic(int Line, int Column, string Message, string Severity);
 
     private sealed class SceneFileData
     {
