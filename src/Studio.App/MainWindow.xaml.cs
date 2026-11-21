@@ -1237,12 +1237,34 @@ public partial class MainWindow : Window
         if (SculptModeCheckBox.IsChecked == true)
         {
             ApplySculptBrush(selected);
+            return;
         }
-        else if (_lastHitVertexIndex >= 0 && _lastHitVertexIndex < _vertexRows.Count)
+
+        var selectionMode = (SelectionModePicker.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Object";
+        switch (selectionMode)
         {
-            VertexGrid.SelectedIndex = _lastHitVertexIndex;
-            VertexGrid.ScrollIntoView(VertexGrid.SelectedItem);
-            StatusText.Text = selected.Name + " · selected face " + _lastHitTriangleIndex + ", vertex " + _lastHitVertexIndex;
+            case "Vertex":
+                if (_lastHitVertexIndex >= 0 && _lastHitVertexIndex < _vertexRows.Count)
+                {
+                    VertexGrid.SelectedIndex = _lastHitVertexIndex;
+                    VertexGrid.ScrollIntoView(VertexGrid.SelectedItem);
+                    StatusText.Text = selected.Name + " · vertex " + _lastHitVertexIndex;
+                }
+                break;
+            case "Edge":
+                var edge = FindNearestTriangleEdge(selected, _lastHitTriangleIndex, _lastHitLocalPoint);
+                if (edge >= 0)
+                {
+                    SplitEdgeIndexInput.Text = edge.ToString(CultureInfo.InvariantCulture);
+                    StatusText.Text = selected.Name + " · triangle " + _lastHitTriangleIndex + " · edge " + edge;
+                }
+                break;
+            case "Face":
+                StatusText.Text = selected.Name + " · selected face " + _lastHitTriangleIndex;
+                break;
+            default:
+                StatusText.Text = selected.Name + " selected";
+                break;
         }
     }
 
@@ -1300,6 +1322,28 @@ public partial class MainWindow : Window
             }
         }
         return nearest;
+    }
+
+    private int FindNearestTriangleEdge(SceneObject item, int triangleIndex, Point3D localPoint)
+    {
+        var indices = item.Mesh.TriangleIndices;
+        var offset = triangleIndex * 3;
+        if (triangleIndex < 0 || offset + 2 >= indices.Count) return -1;
+        var vertices = new[] { indices[offset], indices[offset + 1], indices[offset + 2] };
+        var bestEdge = -1;
+        var bestDistance = double.PositiveInfinity;
+        for (var edge = 0; edge < 3; edge++)
+        {
+            var a = item.Mesh.Positions[vertices[edge]];
+            var b = item.Mesh.Positions[vertices[(edge + 1) % 3]];
+            var segment = b - a;
+            var lengthSquared = segment.LengthSquared;
+            var t = lengthSquared < 1e-10 ? 0 : Math.Clamp(Vector3D.DotProduct(localPoint - a, segment) / lengthSquared, 0, 1);
+            var closest = a + segment * t;
+            var distance = (closest - localPoint).LengthSquared;
+            if (distance < bestDistance) { bestDistance = distance; bestEdge = edge; }
+        }
+        return bestEdge;
     }
 
     private void ApplySculptBrush(SceneObject item)
