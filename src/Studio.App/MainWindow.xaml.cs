@@ -1315,6 +1315,58 @@ public partial class MainWindow : Window
         TimelineSlider.Value += 1.0 / 30.0;
     }
 
+    private void ExtrudeFace_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) { MessageBox.Show("Select an object first."); return; }
+        if (!int.TryParse(ExtrudeTriangleIndex.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var triangle) ||
+            !TryNumber(ExtrudeDistanceInput.Text, out var distance) || Math.Abs(distance) < 0.000001)
+        {
+            MessageBox.Show("Enter a valid zero-based triangle index and a non-zero extrusion distance.", "Extrude face");
+            return;
+        }
+        var sourceIndices = item.Mesh.TriangleIndices;
+        var triangleCount = sourceIndices.Count / 3;
+        if (triangle < 0 || triangle >= triangleCount)
+        {
+            MessageBox.Show("Triangle index is outside the mesh. Triangle indices run from 0 to " + Math.Max(0, triangleCount - 1) + ".", "Extrude face");
+            return;
+        }
+
+        var start = triangle * 3;
+        var aIndex = sourceIndices[start]; var bIndex = sourceIndices[start + 1]; var cIndex = sourceIndices[start + 2];
+        var positions = item.Mesh.Positions.ToList();
+        var a = positions[aIndex]; var b = positions[bIndex]; var c = positions[cIndex];
+        var normal = Vector3D.CrossProduct(b - a, c - a);
+        if (normal.Length < 0.000001) { MessageBox.Show("The selected triangle is degenerate and cannot be extruded."); return; }
+        normal.Normalize();
+        var offset = normal * distance;
+
+        var aTop = positions.Count; positions.Add(a + offset);
+        var bTop = positions.Count; positions.Add(b + offset);
+        var cTop = positions.Count; positions.Add(c + offset);
+        var triangles = new Int32Collection();
+        for (var i = 0; i + 2 < sourceIndices.Count; i += 3)
+        {
+            if (i == start) continue;
+            triangles.Add(sourceIndices[i]); triangles.Add(sourceIndices[i + 1]); triangles.Add(sourceIndices[i + 2]);
+        }
+
+        // New cap and two triangles for each of the three side quads.
+        triangles.Add(aTop); triangles.Add(bTop); triangles.Add(cTop);
+        triangles.Add(aIndex); triangles.Add(bIndex); triangles.Add(bTop);
+        triangles.Add(aIndex); triangles.Add(bTop); triangles.Add(aTop);
+        triangles.Add(bIndex); triangles.Add(cIndex); triangles.Add(cTop);
+        triangles.Add(bIndex); triangles.Add(cTop); triangles.Add(bTop);
+        triangles.Add(cIndex); triangles.Add(aIndex); triangles.Add(aTop);
+        triangles.Add(cIndex); triangles.Add(aTop); triangles.Add(cTop);
+
+        item.Mesh = new MeshGeometry3D { Positions = new Point3DCollection(positions), TriangleIndices = triangles };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = item.Name + ": extruded triangle " + triangle + " by " + distance.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
     private void DuplicateObject_Click(object sender, RoutedEventArgs e)
     {
         var source = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
