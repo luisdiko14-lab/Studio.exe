@@ -5,31 +5,83 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    html,body,#editor{height:100%;width:100%;margin:0;overflow:hidden;background:#171a21}
+    html,body{height:100%;width:100%;margin:0;overflow:hidden;background:#171a21}
+    body{display:flex;flex-direction:column}
+    #editor{flex:1;min-height:0;width:100%;background:#171a21}
     *{box-sizing:border-box}
+    #debugger-panel{display:none;height:235px;min-height:170px;background:#10151d;color:#dbe3f2;border-top:1px solid #303a4b;font:12px Segoe UI,Arial,sans-serif}
+    #debugger-toolbar{height:38px;display:flex;align-items:center;gap:6px;padding:4px 8px;background:#1b2230}
+    #debugger-toolbar button{background:#283449;border:1px solid #3c4b66;color:#edf2fa;padding:5px 10px;border-radius:4px;cursor:pointer}
+    #debugger-toolbar button:hover{background:#394966}
+    #debugger-status{margin-left:auto;color:#a9b9d5}
+    #debugger-content{height:calc(100% - 38px);display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#2d394a}
+    .debug-section{background:#121923;overflow:auto;padding:7px 9px}
+    .debug-section h4{margin:0 0 6px;color:#9eafd0;font-size:10px;letter-spacing:.08em}
+    .debug-section ul{padding:0;margin:0;list-style:none}
+    .debug-section li{padding:3px 2px;border-bottom:1px solid #202a38;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
+    .debug-section li:hover{background:#263449}
+    #debug-output{white-space:pre-wrap;overflow-wrap:anywhere;color:#c3d0e5}
+    .studio-breakpoint-glyph{background:#e34d59;border-radius:50%;width:9px!important;height:9px!important;margin-left:5px}
+    .studio-current-line{background:rgba(87,134,232,.17);border-left:2px solid #83a8ff}
+    
   </style>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 </head>
 <body>
 <div id="editor"></div>
+<div id="debugger-panel">
+  <div id="debugger-toolbar">
+    <button id="dap-continue">Continue</button><button id="dap-pause">Pause</button>
+    <button id="dap-next">Step Over</button><button id="dap-stepin">Step In</button>
+    <button id="dap-stepout">Step Out</button><button id="dap-stop">Stop</button>
+    <span id="debugger-status">Debugger idle · click the gutter to toggle breakpoints</span>
+  </div>
+  <div id="debugger-content">
+    <div class="debug-section"><h4>CALL STACK</h4><ul id="debug-stack"></ul></div>
+    <div class="debug-section"><h4>VARIABLES</h4><ul id="debug-variables"></ul></div>
+    <div class="debug-section"><h4>DEBUG CONSOLE</h4><div id="debug-output"></div></div>
+  </div>
+</div>
 <script>
 require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});
 require(["vs/editor/editor.main"],function(){
   const editor=monaco.editor.create(document.getElementById("editor"),{
     value:"// Welcome to Studio.exe\n// Open a file and start creating.",
     language:"javascript",theme:"vs-dark",automaticLayout:true,minimap:{enabled:true},
-    fontSize:14,wordWrap:"on",tabSize:4,scrollBeyondLastLine:false,
+    fontSize:14,wordWrap:"on",tabSize:4,scrollBeyondLastLine:false,glyphMargin:true,
     smoothScrolling:true,mouseWheelZoom:true,quickSuggestions:{other:true,comments:false,strings:false},
     suggestOnTriggerCharacters:true,formatOnPaste:true,formatOnType:true
   });
   let settingValue=false;
   window.editor=editor;
-  window.studioSetValue=function(value,language){
+  let currentDocumentUri="untitled:studio-new-file", currentLanguage="javascript", documentVersion=1;
+  window.studioSetDocument=function(value,language,uri){
+    const nextUri=uri||"untitled:studio-new-file";
+    if(lsp.ready && lsp.uri && lsp.uri!==nextUri){
+      lspNotify("textDocument/didClose",{textDocument:{uri:lsp.uri}});
+    }
     settingValue=true;
-    editor.setValue(value);
-    monaco.editor.setModelLanguage(editor.getModel(),language||"plaintext");
+    const parsedUri=monaco.Uri.parse(nextUri);
+    const model=editor.getModel();
+    if(!model || model.uri.toString()!==parsedUri.toString()){
+      const nextModel=monaco.editor.createModel(value,language||"plaintext",parsedUri);
+      editor.setModel(nextModel);
+      if(model) model.dispose();
+    }else{
+      model.setValue(value);
+      monaco.editor.setModelLanguage(model,language||"plaintext");
+    }
+    currentDocumentUri=nextUri; currentLanguage=language||"plaintext"; documentVersion++;
+    if(lsp.ready && lsp.uri!==nextUri){
+      lsp.uri=nextUri;
+      lspNotify("textDocument/didOpen",{textDocument:{uri:nextUri,languageId:currentLanguage,version:documentVersion,text:value}});
+    }else if(lsp.ready){
+      lsp.uri=nextUri;
+      lspNotify("textDocument/didChange",{textDocument:{uri:nextUri,version:documentVersion},contentChanges:[{text:value}]});
+    }
     setTimeout(()=>{settingValue=false;},0);
   };
+  window.studioSetValue=window.studioSetDocument;
   window.studioSetDiagnostics=function(items){
     const model=editor.getModel(); if(!model)return;
     const markers=(items||[]).map(d=>({
@@ -42,7 +94,96 @@ require(["vs/editor/editor.main"],function(){
     monaco.editor.setModelMarkers(model,"studio-diagnostics",markers);
   };
   editor.onDidChangeModelContent(()=>{
-    if(!settingValue) window.chrome.webview.postMessage({text:editor.getValue()});
+    if(!settingValue){
+      const text=editor.getValue();
+      window.chrome.webview.postMessage({type:"text",text});
+      if(lsp.ready && lsp.uri){
+        documentVersion++;
+        lspNotify("textDocument/didChange",{textDocument:{uri:lsp.uri,version:documentVersion},contentChanges:[{text}]});
+      }
+    }
+  });
+
+  const lsp={ready:false,language:null,uri:null,seq:10,pending:new Map(),rootUri:null};
+  function sendHost(type,payload){window.chrome.webview.postMessage({type,payload});}
+  function lspRequest(method,params){
+    if(!lsp.ready && method!=="initialize") return Promise.resolve(null);
+    const id=lsp.seq++;
+    return new Promise(resolve=>{
+      const timer=setTimeout(()=>{lsp.pending.delete(id);resolve(null);},3500);
+      lsp.pending.set(id,{resolve,timer,method});
+      sendHost("lsp",{jsonrpc:"2.0",id,method,params});
+    });
+  }
+  function lspNotify(method,params){if(lsp.uri || method==="initialized") sendHost("lsp",{jsonrpc:"2.0",method,params});}
+  function lspPosition(position){return {line:position.lineNumber-1,character:position.column-1};}
+  function lspRange(range){
+    if(!range)return null;
+    return new monaco.Range(range.start.line+1,range.start.character+1,range.end.line+1,range.end.character+1);
+  }
+  function lspMarkup(value){
+    if(!value)return "";
+    if(typeof value==="string")return value;
+    if(Array.isArray(value))return value.map(x=>x.value||x.language||"").join("\\n");
+    return value.value||"";
+  }
+  function lspCompletion(result,position){
+    if(!result)return null;
+    const list=Array.isArray(result)?result:(result.items||[]);
+    const word=editor.getModel().getWordUntilPosition(position);
+    const fallbackRange={startLineNumber:position.lineNumber,startColumn:word.startColumn,endLineNumber:position.lineNumber,endColumn:word.endColumn};
+    const kindMap={1:K.Text,2:K.Method,3:K.Function,4:K.Constructor,5:K.Field,6:K.Variable,7:K.Class,8:K.Interface,9:K.Module,10:K.Property,11:K.Unit,12:K.Value,13:K.Enum,14:K.Keyword,15:K.Snippet,16:K.Color,17:K.File,18:K.Reference,19:K.Folder,20:K.EnumMember,21:K.Constant,22:K.Struct,23:K.Event,24:K.Operator,25:K.TypeParameter};
+    return {isIncomplete:!!result.isIncomplete,suggestions:list.map(item=>({
+      label:item.label,kind:kindMap[item.kind]||K.Text,detail:item.detail,
+      documentation:lspMarkup(item.documentation),sortText:item.sortText,filterText:item.filterText,
+      insertText:item.insertText||item.label,
+      insertTextRules:item.insertTextFormat===2?R.InsertAsSnippet:undefined,
+      range:item.textEdit&&item.textEdit.range?lspRange(item.textEdit.range):fallbackRange
+    }))};
+  }
+  window.studioConnectLsp=async function(config){
+    lsp.ready=false;lsp.language=config.language;lsp.uri=config.uri;lsp.rootUri=config.rootUri;
+    const result=await lspRequest("initialize",{
+      processId:null,clientInfo:{name:"Studio.exe",version:"1.0.0"},rootUri:config.rootUri,
+      workspaceFolders:[{uri:config.rootUri,name:"Studio"}],
+      capabilities:{
+        textDocument:{
+          completion:{completionItem:{snippetSupport:true,documentationFormat:["markdown","plaintext"],tagSupport:{valueSet:[1]}}},
+          hover:{contentFormat:["markdown","plaintext"]},definition:{linkSupport:true},
+          signatureHelp:{signatureInformation:{documentationFormat:["markdown","plaintext"],parameterInformation:{labelOffsetSupport:true}}},
+          documentSymbol:{hierarchicalDocumentSymbolSupport:true},publishDiagnostics:{relatedInformation:true,versionSupport:true},
+          synchronization:{dynamicRegistration:false,didSave:true}
+        },workspace:{workspaceFolders:true,configuration:true}
+      }
+    });
+    if(!result){window.chrome.webview.postMessage({type:"editorStatus",text:"Language server did not answer initialize."});return;}
+    lsp.ready=true;
+    lspNotify("initialized",{});
+    lspNotify("textDocument/didOpen",{textDocument:{uri:lsp.uri,languageId:lsp.language,version:documentVersion,text:editor.getValue()}});
+    window.chrome.webview.postMessage({type:"editorStatus",text:(lsp.language==="python"?"Pyright":"C# Roslyn")+" language server connected"});
+  };
+  window.studioDisconnectLsp=function(){
+    if(lsp.ready && lsp.uri) lspNotify("textDocument/didClose",{textDocument:{uri:lsp.uri}});
+    lsp.ready=false;lsp.uri=null;lsp.language=null;lsp.pending.forEach(x=>{clearTimeout(x.timer);x.resolve(null);});lsp.pending.clear();
+  };
+  window.addEventListener("message",event=>{
+    const packet=event.data;if(!packet||typeof packet!=="object")return;
+    if(packet.type==="lspMessage"){
+      const message=packet.payload;
+      if(message.id!==undefined && lsp.pending.has(message.id)){
+        const pending=lsp.pending.get(message.id);lsp.pending.delete(message.id);clearTimeout(pending.timer);pending.resolve(message.result||null);
+      }
+      if(message.method==="textDocument/publishDiagnostics"){
+        const diagnostics=message.params.diagnostics||[];
+        const markers=diagnostics.map(d=>({
+          startLineNumber:d.range.start.line+1,startColumn:d.range.start.character+1,
+          endLineNumber:d.range.end.line+1,endColumn:Math.max(d.range.start.character+2,d.range.end.character+1),
+          message:d.message,source:d.source||"Language Server",
+          severity:d.severity===1?monaco.MarkerSeverity.Error:d.severity===2?monaco.MarkerSeverity.Warning:d.severity===3?monaco.MarkerSeverity.Info:monaco.MarkerSeverity.Hint
+        }));
+        if(message.params.uri===lsp.uri)monaco.editor.setModelMarkers(editor.getModel(),"language-server",markers);
+      }
+    }else if(packet.type==="dapMessage") dapHandle(packet.payload);
   });
 
   const K=monaco.languages.CompletionItemKind;
@@ -105,7 +246,11 @@ require(["vs/editor/editor.main"],function(){
   }
   monaco.languages.registerCompletionItemProvider("python",{
     triggerCharacters:[".","@"],
-    provideCompletionItems(model,position){
+    async provideCompletionItems(model,position){
+        if(lsp.ready && lsp.uri){
+          const remote=await lspRequest("textDocument/completion",{textDocument:{uri:lsp.uri},position:lspPosition(position)});
+          if(remote)return lspCompletion(remote,position);
+        }
       const word=currentWord(model,position),range={startLineNumber:position.lineNumber,startColumn:word.startColumn,endLineNumber:position.lineNumber,endColumn:word.endColumn};
       const line=model.getLineContent(position.lineNumber),before=line.slice(0,position.column-1);
       let names=[];
@@ -173,7 +318,11 @@ require(["vs/editor/editor.main"],function(){
   }
   for(const language of ["python","csharp"]){
     monaco.languages.registerHoverProvider(language,{
-      provideHover(model,position){
+      async provideHover(model,position){
+        if(lsp.ready && lsp.uri){
+          const remote=await lspRequest("textDocument/hover",{textDocument:{uri:lsp.uri},position:lspPosition(position)});
+          if(remote&&remote.contents)return {contents:[{value:lspMarkup(remote.contents)}],range:lspRange(remote.range)||undefined};
+        }
         const word=wordAt(model,position);
         const line=model.getLineContent(position.lineNumber);
         const qualified=(line.slice(0,position.column-1).match(/[A-Za-z_]\w*\.$/)||[])[0]||"";
@@ -185,7 +334,11 @@ require(["vs/editor/editor.main"],function(){
     });
     monaco.languages.registerSignatureHelpProvider(language,{
       signatureHelpTriggerCharacters:["(",",","="],
-      provideSignatureHelp(model,position){
+      async provideSignatureHelp(model,position){
+        if(lsp.ready && lsp.uri){
+          const remote=await lspRequest("textDocument/signatureHelp",{textDocument:{uri:lsp.uri},position:lspPosition(position)});
+          if(remote)return {value:remote,dispose(){}};
+        }
         const prefix=model.getValueInRange({startLineNumber:Math.max(1,position.lineNumber-2),startColumn:1,endLineNumber:position.lineNumber,endColumn:position.column});
         const match=prefix.match(/([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*\([^()]*$/);
         if(!match)return {value:{signatures:[],activeSignature:0,activeParameter:0},dispose(){}};
@@ -196,7 +349,16 @@ require(["vs/editor/editor.main"],function(){
       }
     });
     monaco.languages.registerDocumentSymbolProvider(language,{
-      provideDocumentSymbols(model){
+      async provideDocumentSymbols(model){
+        if(lsp.ready && lsp.uri){
+          const remote=await lspRequest("textDocument/documentSymbol",{textDocument:{uri:lsp.uri}});
+          if(remote&&remote.length)return remote.map(s=>({
+            name:s.name,detail:s.detail||"",kind:s.kind||K.Function,
+            range:lspRange(s.range||s.location&&s.location.range)||new monaco.Range(1,1,1,1),
+            selectionRange:lspRange(s.selectionRange||s.location&&s.location.range)||new monaco.Range(1,1,1,1),
+            children:s.children
+          }));
+        }
         const symbols=[],text=model.getValue(),re=language==="python"?/^\s*(async\s+)?(def|class)\s+([A-Za-z_]\w*)/gm:/\b(class|struct|interface|enum|record|namespace|void|int|string|bool|Task)\s+([A-Za-z_]\w*)\s*(?=[({])/g;
         let m;while((m=re.exec(text))!==null){
           const line=model.getPositionAt(m.index).lineNumber;
@@ -207,7 +369,13 @@ require(["vs/editor/editor.main"],function(){
       }
     });
     monaco.languages.registerDefinitionProvider(language,{
-      provideDefinition(model,position){
+      async provideDefinition(model,position){
+        if(lsp.ready && lsp.uri){
+          const remote=await lspRequest("textDocument/definition",{textDocument:{uri:lsp.uri},position:lspPosition(position)});
+          const location=Array.isArray(remote)?remote[0]:remote;
+          if(location&&location.range)return {uri:monaco.Uri.parse(location.uri||lsp.uri),range:lspRange(location.range)};
+          if(location&&location.targetSelectionRange)return {uri:monaco.Uri.parse(location.targetUri),range:lspRange(location.targetSelectionRange)};
+        }
         const name=wordAt(model,position);if(!name)return null;
         const text=model.getValue(),patterns=language==="python"?[/^\s*def\s+NAME\b/m,/^\s*class\s+NAME\b/m,/^\s*NAME\s*=/m]:[/\b(?:class|struct|interface|enum|record|namespace)\s+NAME\b/,/\b(?:void|int|string|bool|var|Task|double)\s+NAME\s*(?=[=(;])/];
         for(const template of patterns){
@@ -218,6 +386,109 @@ require(["vs/editor/editor.main"],function(){
       }
     });
   }
+  const dap={seq:1,pending:new Map(),target:null,threadId:1,frameId:null,ready:false,configured:false,breakpoints:new Set(),lineDecoration:[]};
+  const byId=id=>document.getElementById(id);
+  function setDebugStatus(text){byId("debugger-status").textContent=text;}
+  function debugOutput(text){const node=byId("debug-output");node.textContent+=text;if(!text.endsWith("\\n"))node.textContent+="\\n";node.scrollTop=node.scrollHeight;}
+  function dapRequest(command,args={}){
+    const seq=dap.seq++;
+    return new Promise(resolve=>{
+      const timer=setTimeout(()=>{dap.pending.delete(seq);resolve(null);},10000);
+      dap.pending.set(seq,{resolve,timer,command});
+      sendHost("dap",{seq,type:"request",command,arguments:args});
+    });
+  }
+  function setBreakpoints(){
+    if(!dap.ready||!dap.target)return;
+    const lines=[...dap.breakpoints].sort((a,b)=>a-b).map(line=>({line,verified:false}));
+    dapRequest("setBreakpoints",{source:{name:dap.target.program.split(/[\\/]/).pop(),path:dap.target.program},breakpoints:lines,sourceModified:false})
+      .then(result=>{if(result&&result.breakpoints)result.breakpoints.forEach((bp,i)=>{if(bp.verified)setDebugStatus("Breakpoint verified · line "+lines[i].line);});});
+  }
+  function toggleBreakpoint(line){
+    if(dap.breakpoints.has(line))dap.breakpoints.delete(line);else dap.breakpoints.add(line);
+    if(dap.breakpoints.has(line))debugOutput("Breakpoint added at line "+line);else debugOutput("Breakpoint removed at line "+line);
+    renderBreakpoints();setBreakpoints();
+  }
+  function renderBreakpoints(){
+    const decorations=[...dap.breakpoints].map(line=>({range:new monaco.Range(line,1,line,1),options:{glyphMarginClassName:"studio-breakpoint-glyph",glyphMarginHoverMessage:{value:"Breakpoint · line "+line}}}));
+    dap.lineDecoration=editor.deltaDecorations(dap.lineDecoration.filter(()=>false),decorations);
+  }
+  editor.onMouseDown(event=>{
+    if(!event.target||!event.target.position)return;
+    if(event.target.type===monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN||event.target.type===monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS)
+      toggleBreakpoint(event.target.position.lineNumber);
+  });
+  function renderList(id,items,click){
+    const list=byId(id);list.innerHTML="";
+    for(const item of items){const li=document.createElement("li");li.textContent=item.label||item.name||String(item.value||"");if(item.title)li.title=item.title;if(click)li.addEventListener("click",()=>click(item));list.appendChild(li);}
+  }
+  async function refreshStack(){
+    const result=await dapRequest("stackTrace",{threadId:dap.threadId,startFrame:0,levels:30});
+    const frames=result&&result.stackFrames||[];
+    renderList("debug-stack",frames.map(frame=>({label:frame.name+"  ·  "+(frame.source&&frame.source.name||"") + ":" + frame.line,title:frame.id})),frame=>{
+      dap.frameId=frame.title;editor.revealLineInCenter(Number(frame.label.match(/:(\\d+)$/)?.[1]||1));
+      editor.setPosition({lineNumber:Number(frame.label.match(/:(\\d+)$/)?.[1]||1),column:1});refreshVariables();
+    });
+    if(frames.length){dap.frameId=frames[0].id;editor.revealLineInCenter(frames[0].line);editor.setPosition({lineNumber:frames[0].line,column:1});await refreshVariables();}
+  }
+  async function refreshVariables(){
+    if(dap.frameId===null)return;
+    const scopes=await dapRequest("scopes",{frameId:dap.frameId});
+    const rows=[];
+    for(const scope of scopes&&scopes.scopes||[]){
+      rows.push({label:"▸ "+scope.name});
+      const vars=await dapRequest("variables",{variablesReference:scope.variablesReference});
+      for(const item of vars&&vars.variables||[])rows.push({label:"  "+item.name+" = "+item.value,title:item.type||""});
+    }
+    renderList("debug-variables",rows);
+  }
+  function dapHandle(message){
+    if(!message)return;
+    if(message.type==="response"&&dap.pending.has(message.request_seq)){
+      const p=dap.pending.get(message.request_seq);dap.pending.delete(message.request_seq);clearTimeout(p.timer);
+      if(!message.success)debugOutput("DAP "+p.command+" failed: "+(message.message||"unknown error"));
+      p.resolve(message.success?message.body||{}:null);
+    }else if(message.type==="event"){
+      if(message.event==="initialized"){
+        dap.ready=true;setBreakpoints();
+        dapRequest("setExceptionBreakpoints",{filters:["uncaught","raised"]}).then(()=>dapRequest("configurationDone",{}));
+        setDebugStatus("Python debugger initialized · breakpoints enabled");
+      }else if(message.event==="stopped"){
+        dap.threadId=message.body.threadId||dap.threadId;setDebugStatus("Paused · "+(message.body.reason||"breakpoint"));
+        refreshStack();
+      }else if(message.event==="continued"){setDebugStatus("Running…");}
+      else if(message.event==="output"){debugOutput(message.body.output||"");}
+      else if(message.event==="terminated"||message.event==="exited"){setDebugStatus("Debug session ended");dap.ready=false;}
+      else if(message.event==="breakpoint"){debugOutput("Breakpoint event: "+JSON.stringify(message.body));}
+      else if(message.event==="thread"){dap.threadId=message.body.threadId||dap.threadId;}
+    }
+  }
+  window.studioStartDap=async function(target){
+    dap.target=target;dap.ready=false;dap.configured=false;dap.pending.forEach(p=>{clearTimeout(p.timer);p.resolve(null);});dap.pending.clear();
+    dap.breakpoints.clear();dap.frameId=null;byId("debugger-panel").style.display="block";setDebugStatus("Connecting to debugpy…");
+    byId("debug-stack").innerHTML="";byId("debug-variables").innerHTML="";byId("debug-output").textContent="";
+    renderBreakpoints();
+    const initialized=await dapRequest("initialize",{
+      clientID:"studio-exe",clientName:"Studio.exe",adapterID:"python",pathFormat:"path",
+      linesStartAt1:true,columnsStartAt1:true,supportsVariableType:true,
+      supportsRunInTerminalRequest:false,supportsProgressReporting:true
+    });
+    if(!initialized){setDebugStatus("debugpy did not respond to initialize");return;}
+    const launched=await dapRequest("launch",{
+      name:"Launch Python",type:"python",request:"launch",program:target.program,cwd:target.cwd,
+      python:target.python,console:"internalConsole",justMyCode:true,stopOnEntry:false,
+      redirectOutput:true,subProcess:false
+    });
+    if(!launched)setDebugStatus("Python launch failed · check debug console output");
+    else setDebugStatus("Python process launched · set a gutter breakpoint or wait for a stop");
+  };
+  byId("dap-continue").onclick=()=>dapRequest("continue",{threadId:dap.threadId});
+  byId("dap-pause").onclick=()=>dapRequest("pause",{threadId:dap.threadId});
+  byId("dap-next").onclick=()=>dapRequest("next",{threadId:dap.threadId});
+  byId("dap-stepin").onclick=()=>dapRequest("stepIn",{threadId:dap.threadId});
+  byId("dap-stepout").onclick=()=>dapRequest("stepOut",{threadId:dap.threadId});
+  byId("dap-stop").onclick=()=>{dapRequest("disconnect",{restart:false,terminateDebuggee:true});dap.ready=false;setDebugStatus("Stop requested");};
+
   monaco.editor.setTheme("vs-dark");
   window.addEventListener("resize",()=>editor.layout());
 });
