@@ -938,8 +938,177 @@ public partial class MainWindow : Window
             indices.Add(ab); indices.Add(bc); indices.Add(ca);
         }
         item.Mesh = new MeshGeometry3D { Positions = new Point3DCollection(positions), TriangleIndices = indices };
-        item.Model.Geometry = item.Mesh;
+        item.Model.Geometry = item.Mesh; RefreshVertexRows(item);
         StatusText.Text = $"{item.Name}: subdivided to {indices.Count / 3} triangles";
+    }
+
+    private void RefreshVertexRows(SceneObject item)
+    {
+        _vertexRows.Clear();
+        for (var i = 0; i < item.Mesh.Positions.Count; i++)
+        {
+            var p = item.Mesh.Positions[i];
+            _vertexRows.Add(new VertexEditRow { Index = i, X = p.X, Y = p.Y, Z = p.Z });
+        }
+        VertexGrid.ItemsSource = _vertexRows;
+    }
+
+    private void ApplyVertexEdits_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) return;
+        VertexGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        VertexGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        var positions = item.Mesh.Positions.ToList();
+        foreach (var row in _vertexRows)
+        {
+            if (row.Index < 0 || row.Index >= positions.Count) continue;
+            positions[row.Index] = new Point3D(row.X, row.Y, row.Z);
+        }
+        item.Mesh = new MeshGeometry3D { Positions = new Point3DCollection(positions), TriangleIndices = new Int32Collection(item.Mesh.TriangleIndices) };
+        item.Model.Geometry = item.Mesh;
+        StatusText.Text = $"Updated {positions.Count} vertices on {item.Name}";
+    }
+
+    private void FlipNormals_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) return;
+        var indices = new Int32Collection(item.Mesh.TriangleIndices);
+        for (var i = 0; i + 2 < indices.Count; i += 3)
+        {
+            var temp = indices[i + 1]; indices[i + 1] = indices[i + 2]; indices[i + 2] = temp;
+        }
+        item.Mesh = new MeshGeometry3D { Positions = new Point3DCollection(item.Mesh.Positions), TriangleIndices = indices };
+        item.Model.Geometry = item.Mesh;
+        StatusText.Text = "Face winding reversed · normals flipped";
+    }
+
+    private void SmoothMesh_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) return;
+        var source = item.Mesh.Positions.ToArray();
+        var neighbors = Enumerable.Range(0, source.Length).Select(_ => new HashSet<int>()).ToArray();
+        var triangles = item.Mesh.TriangleIndices;
+        for (var i = 0; i + 2 < triangles.Count; i += 3)
+        {
+            var a = triangles[i]; var b = triangles[i + 1]; var c = triangles[i + 2];
+            neighbors[a].Add(b); neighbors[a].Add(c);
+            neighbors[b].Add(a); neighbors[b].Add(c);
+            neighbors[c].Add(a); neighbors[c].Add(b);
+        }
+        var smoothed = new Point3DCollection();
+        for (var i = 0; i < source.Length; i++)
+        {
+            if (neighbors[i].Count == 0) { smoothed.Add(source[i]); continue; }
+            var adjacent = neighbors[i].Select(index => source[index]).ToArray();
+            var average = new Point3D(adjacent.Average(p => p.X), adjacent.Average(p => p.Y), adjacent.Average(p => p.Z));
+            smoothed.Add(new Point3D(source[i].X * 0.75 + average.X * 0.25,
+                source[i].Y * 0.75 + average.Y * 0.25, source[i].Z * 0.75 + average.Z * 0.25));
+        }
+        item.Mesh = new MeshGeometry3D { Positions = smoothed, TriangleIndices = new Int32Collection(triangles) };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = "Applied one Laplacian smoothing pass";
+    }
+
+    private void ImportMesh_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Filter = "3D mesh files (*.obj;*.stl)|*.obj;*.stl|Wavefront OBJ (*.obj)|*.obj|STL (*.stl)|*.stl" };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
+            var mesh = extension == ".obj" ? ImportObj(dialog.FileName) : ImportStl(dialog.FileName);
+            if (mesh.Positions.Count == 0 || mesh.TriangleIndices.Count < 3)
+                throw new InvalidDataException("The selected file did not contain any triangle mesh geometry.");
+            AddSceneObjectFromMesh(Path.GetFileNameWithoutExtension(dialog.FileName), mesh);
+            StatusText.Text = $"Imported {Path.GetFileName(dialog.FileName)} · {mesh.Positions.Count} vertices / {mesh.TriangleIndices.Count / 3} triangles";
+        }
+        catch (Exception ex) { MessageBox.Show($"Could not import mesh:\n{ex.Message}", "3D import failed"); }
+    }
+
+    private static MeshGeometry3D ImportObj(string path)
+    {
+        var mesh = new MeshGeometry3D();
+        foreach (var raw in File.ReadLines(path))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("v ", StringComparison.Ordinal))
+            {
+                var values = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length >= 4 && TryParseFloat(values[1], out var x) && TryParseFloat(values[2], out var y) && TryParseFloat(values[3], out var z))
+                    mesh.Positions.Add(new Point3D(x, y, z));
+            }
+            else if (line.StartsWith("f ", StringComparison.Ordinal))
+            {
+                var tokens = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
+                var face = new List<int>();
+                foreach (var token in tokens)
+                {
+                    var value = token.Split('/')[0];
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || index == 0)
+                        throw new InvalidDataException("OBJ contains an invalid face index.");
+                    var resolved = index > 0 ? index - 1 : mesh.Positions.Count + index;
+                    if (resolved < 0 || resolved >= mesh.Positions.Count) throw new InvalidDataException("OBJ face index is out of range.");
+                    face.Add(resolved);
+                }
+                for (var i = 1; i + 1 < face.Count; i++)
+                {
+                    mesh.TriangleIndices.Add(face[0]); mesh.TriangleIndices.Add(face[i]); mesh.TriangleIndices.Add(face[i + 1]);
+                }
+            }
+        }
+        return mesh;
+    }
+
+    private static MeshGeometry3D ImportStl(string path)
+    {
+        var data = File.ReadAllBytes(path);
+        var mesh = new MeshGeometry3D();
+        if (data.Length >= 84)
+        {
+            var count = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(80, 4));
+            if (count > 0 && 84L + 50L * count == data.Length)
+            {
+                var offset = 84;
+                for (var triangle = 0; triangle < count; triangle++)
+                {
+                    offset += 12;
+                    for (var vertex = 0; vertex < 3; vertex++)
+                    {
+                        var x = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset, 4))); offset += 4;
+                        var y = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset, 4))); offset += 4;
+                        var z = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset, 4))); offset += 4;
+                        mesh.TriangleIndices.Add(mesh.Positions.Count); mesh.Positions.Add(new Point3D(x, y, z));
+                    }
+                    offset += 2;
+                }
+                return mesh;
+            }
+        }
+        var vertices = Regex.Matches(File.ReadAllText(path), @"vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)", RegexOptions.IgnoreCase);
+        foreach (Match vertex in vertices)
+        {
+            if (!TryParseFloat(vertex.Groups[1].Value, out var x) || !TryParseFloat(vertex.Groups[2].Value, out var y) ||
+                !TryParseFloat(vertex.Groups[3].Value, out var z)) throw new InvalidDataException("ASCII STL contains an invalid vertex.");
+            mesh.TriangleIndices.Add(mesh.Positions.Count); mesh.Positions.Add(new Point3D(x, y, z));
+        }
+        if (mesh.Positions.Count % 3 != 0) throw new InvalidDataException("ASCII STL does not contain complete facets.");
+        return mesh;
+    }
+
+    private static bool TryParseFloat(string value, out double result) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+
+    private void AddSceneObjectFromMesh(string name, MeshGeometry3D mesh)
+    {
+        var material = CreateMaterial("#718EFF");
+        var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
+        var item = new SceneObject { Name = name, Shape = "Custom", Mesh = mesh, Model = model, ColorHex = "#718EFF" };
+        UpdateObjectTransform(item); _scene.Add(item); _world.Children.Add(model); RefreshSceneList(item.Name);
+        RefreshVertexRows(item);
     }
 
     private void DuplicateObject_Click(object sender, RoutedEventArgs e)
