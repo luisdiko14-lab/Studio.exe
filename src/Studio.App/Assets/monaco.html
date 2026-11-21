@@ -84,6 +84,12 @@ require(["vs/editor/editor.main"],function(){
     window.chrome.webview.postMessage({type:"text",text:actualText});
     setTimeout(()=>{settingValue=false;},0);
   };
+  window.studioRevealPosition=function(line,column){
+    const position={lineNumber:Math.max(1,line||1),column:Math.max(1,column||1)};
+    editor.revealPositionInCenter(position);
+    editor.setPosition(position);
+    editor.focus();
+  };
   window.studioCloseDocument=function(uri){
     if(!uri)return;
     if(lsp.ready && lsp.uri===uri){
