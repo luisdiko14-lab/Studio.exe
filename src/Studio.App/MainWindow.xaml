@@ -1,0 +1,243 @@
+<Window x:Class="StudioApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Studio.exe" Width="1440" Height="900" MinWidth="1040" MinHeight="680"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}" Loaded="Window_Loaded" Closing="Window_Closing"
+        PreviewKeyDown="Window_PreviewKeyDown">
+  <Grid>
+    <Grid x:Name="WizardRoot" Background="#171A21">
+      <Border Width="700" MaxHeight="720" Padding="42" CornerRadius="20" Background="#202631"
+              BorderBrush="#3A4354" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+          <StackPanel x:Name="WelcomeStep">
+            <TextBlock Text="STUDIO.EXE" Foreground="#8EA0FF" FontSize="14" FontWeight="Bold"/>
+            <TextBlock Text="Welcome to your new studio." FontSize="34" FontWeight="SemiBold" Margin="0,24,0,8"/>
+            <TextBlock Text="Your creativity. Your code. Your world." Foreground="#AAB4C5" FontSize="16" Margin="0,0,0,28"/>
+            <Border Height="150" CornerRadius="14" Background="#171D28" Padding="24">
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="✦" FontSize="34" Foreground="#91A0FF"/>
+                <TextBlock Text="One workspace. Many possibilities." FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <TextBlock Text="Code, run projects, use your shell, and experiment in 3D." Foreground="#9EAABD" TextWrapping="Wrap" Margin="0,5,0,0"/>
+              </StackPanel>
+            </Border>
+            <Button Content="Start creating  →" Click="WizardStart_Click" Background="#6579F5"
+                    BorderBrush="#8796FF" FontSize="15" HorizontalAlignment="Right" Margin="0,28,0,0" Padding="22,12"/>
+          </StackPanel>
+          <StackPanel x:Name="NameStep" Visibility="Collapsed">
+            <TextBlock Text="STEP 01 / IDENTITY" Foreground="#91A0FF" FontSize="12" FontWeight="Bold"/>
+            <TextBlock Text="What do you want this studio to be named?" FontSize="28" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Margin="0,18,0,12"/>
+            <TextBox x:Name="StudioNameInput" FontSize="20" Padding="14" Text="My Studio"
+                     TextChanged="StudioNameInput_TextChanged"/>
+            <TextBlock Text="LIVE PREVIEW" Foreground="#96A2B5" FontSize="11" FontWeight="Bold" Margin="0,28,0,8"/>
+            <Border Background="#171D28" CornerRadius="12" Padding="18">
+              <StackPanel>
+                <TextBlock x:Name="StudioNamePreview" Text="My Studio" FontSize="24" FontWeight="SemiBold"/>
+                <TextBlock Text="Your personal development workspace" Foreground="#9EAABD" Margin="0,5,0,0"/>
+              </StackPanel>
+            </Border>
+            <DockPanel Margin="0,28,0,0">
+              <Button Content="Back" Click="WizardBackToWelcome_Click" HorizontalAlignment="Left"/>
+              <Button Content="Continue  →" Click="WizardNameNext_Click" Background="#6579F5"
+                      BorderBrush="#8796FF" DockPanel.Dock="Right" Padding="20,10"/>
+            </DockPanel>
+          </StackPanel>
+          <StackPanel x:Name="PersonalizeStep" Visibility="Collapsed">
+            <TextBlock Text="STEP 02 / PERSONALIZATION" Foreground="#91A0FF" FontSize="12" FontWeight="Bold"/>
+            <TextBlock Text="Make it yours." FontSize="30" FontWeight="SemiBold" Margin="0,18,0,18"/>
+            <TextBlock Text="Appearance" Foreground="#AAB4C5" Margin="0,0,0,6"/>
+            <ComboBox x:Name="ThemePicker" SelectedIndex="0">
+              <ComboBoxItem Content="Dark"/><ComboBoxItem Content="Light"/><ComboBoxItem Content="System"/>
+            </ComboBox>
+            <TextBlock Text="Accent color" Foreground="#AAB4C5" Margin="0,18,0,6"/>
+            <ComboBox x:Name="AccentPicker" SelectedIndex="0">
+              <ComboBoxItem Content="Indigo"/><ComboBoxItem Content="Blue"/><ComboBoxItem Content="Violet"/><ComboBoxItem Content="Teal"/>
+            </ComboBox>
+            <TextBlock Text="Default projects folder" Foreground="#AAB4C5" Margin="0,18,0,6"/>
+            <TextBox x:Name="DefaultFolderInput" IsReadOnly="True"/>
+            <Button Content="Choose folder…" Click="ChooseDefaultFolder_Click" HorizontalAlignment="Left"/>
+            <DockPanel Margin="0,28,0,0">
+              <Button Content="Back" Click="WizardBackToName_Click"/>
+              <Button Content="Finish and open Studio  →" Click="FinishSetup_Click" Background="#6579F5"
+                      BorderBrush="#8796FF" DockPanel.Dock="Right" Padding="20,10"/>
+            </DockPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Grid x:Name="WorkspaceRoot" Visibility="Collapsed">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="230"/><RowDefinition Height="26"/>
+      </Grid.RowDefinitions>
+      <DockPanel Grid.Row="0" Background="#20242E" LastChildFill="True">
+        <TextBlock x:Name="BrandText" Text="Studio.exe" FontWeight="Bold" Foreground="#AAB8FF" FontSize="14" Margin="14,10"/>
+        <Menu Background="#20242E" Foreground="#F1F4FA" VerticalAlignment="Center">
+          <MenuItem Header="_File">
+            <MenuItem Header="Open Project…" Click="OpenProject_Click"/>
+            <MenuItem Header="Open File…" Click="OpenFile_Click"/>
+            <MenuItem Header="New File…" Click="NewFile_Click"/>
+            <Separator/><MenuItem Header="Save" Click="Save_Click" InputGestureText="Ctrl+S"/>
+          </MenuItem>
+          <MenuItem Header="_View">
+            <MenuItem Header="Code Editor" Click="ShowEditor_Click"/>
+            <MenuItem Header="3D Modeler" Click="Show3D_Click"/>
+            <MenuItem Header="Extensions" Click="ShowExtensions_Click"/>
+            <MenuItem Header="Toggle Terminal" Click="ToggleTerminal_Click"/>
+          </MenuItem>
+          <MenuItem Header="_Terminal">
+            <MenuItem Header="New PowerShell" Click="PowerShell_Click"/>
+            <MenuItem Header="New Command Prompt" Click="CommandPrompt_Click"/>
+            <MenuItem Header="Clear Terminal" Click="ClearTerminal_Click"/>
+          </MenuItem>
+          <MenuItem Header="_Run">
+            <MenuItem Header="Run Current File" Click="Run_Click"/>
+            <MenuItem Header="Build Project" Click="Build_Click"/>
+            <MenuItem Header="Stop" Click="Stop_Click"/>
+          </MenuItem>
+          <MenuItem Header="_Help"><MenuItem Header="About Studio.exe" Click="About_Click"/></MenuItem>
+        </Menu>
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,4,10,4">
+          <Button Content="Open Project" Click="OpenProject_Click"/>
+          <Button Content="Run ▶" Click="Run_Click" Background="#536BD6"/>
+          <Button Content="Build" Click="Build_Click"/>
+          <Button Content="Stop ■" Click="Stop_Click"/>
+        </StackPanel>
+      </DockPanel>
+
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="245"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="#20242E" BorderBrush="#343B49" BorderThickness="0,0,1,0" Padding="10">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top">
+              <TextBlock Text="WORKSPACE" Foreground="#8F9DB3" FontWeight="Bold" FontSize="11" Margin="5,6,5,8"/>
+              <Button Content="＋  Open project folder" Click="OpenProject_Click"/>
+              <UniformGrid Columns="3" Margin="0,7,0,12">
+                <Button Content="Code" Click="ShowEditor_Click"/><Button Content="3D" Click="Show3D_Click"/><Button Content="Apps" Click="ShowExtensions_Click"/>
+              </UniformGrid>
+              <DockPanel Margin="4,4,4,8">
+                <TextBlock Text="EXPLORER" Foreground="#A9B5C8" FontWeight="Bold" FontSize="11"/>
+                <Button Content="↻" Padding="5,1" Margin="0,-5,0,-5" Click="RefreshExplorer_Click" DockPanel.Dock="Right"/>
+              </DockPanel>
+            </StackPanel>
+            <ListBox x:Name="ExplorerList" Background="Transparent" BorderThickness="0" Foreground="#E5EAF3"
+                     MouseDoubleClick="ExplorerList_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" Padding="4,5" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <TabControl x:Name="WorkspaceTabs" Grid.Column="1" Background="#171A21" BorderThickness="0">
+          <TabItem x:Name="EditorTab" Header="Editor">
+            <Grid Background="#171A21">
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+              <DockPanel Grid.Row="0" Background="#20242E">
+                <TextBlock x:Name="CurrentFileText" Text="No file open" Foreground="#B5C0D1" Margin="12,9"/>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button Content="New file" Click="NewFile_Click"/><Button Content="Save" Click="Save_Click"/></StackPanel>
+              </DockPanel>
+              <TextBox x:Name="EditorText" Grid.Row="1" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Cascadia Code, Consolas" FontSize="14" BorderThickness="0" Padding="16"
+                       Background="#171A21" TextChanged="EditorText_TextChanged" SpellCheck.IsEnabled="False"/>
+            </Grid>
+          </TabItem>
+
+          <TabItem x:Name="ModelerTab" Header="3D Modeler">
+            <Grid Background="#171A21" Margin="10">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+              <Border Grid.Column="0" Background="#20242E" CornerRadius="9" Padding="10" Margin="0,0,8,0">
+                <StackPanel>
+                  <TextBlock Text="CREATE" FontWeight="Bold" Foreground="#AAB8FF" Margin="3,4,3,10"/>
+                  <ComboBox x:Name="ShapePicker" SelectedIndex="0"><ComboBoxItem Content="Cube"/><ComboBoxItem Content="Sphere"/></ComboBox>
+                  <Button Content="+ Add object" Click="AddPrimitive_Click"/>
+                  <Button Content="Duplicate selected" Click="DuplicateObject_Click"/>
+                  <Button Content="Delete selected" Click="DeleteObject_Click"/>
+                  <Separator Margin="0,12"/>
+                  <TextBlock Text="SCENE" FontWeight="Bold" Foreground="#AAB8FF" Margin="3,4,3,8"/>
+                  <ListBox x:Name="SceneList" Background="#171A21" Foreground="#F1F4FA" BorderThickness="0" SelectionChanged="SceneList_SelectionChanged"/>
+                  <Button Content="Save scene…" Click="SaveScene_Click"/>
+                  <Button Content="Open scene…" Click="OpenScene_Click"/>
+                  <Button Content="Export OBJ / STL…" Click="Export3D_Click"/>
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="1" Background="#101722" CornerRadius="9" BorderBrush="#343B49" BorderThickness="1" ClipToBounds="True">
+                <Viewport3D x:Name="ModelViewport" ClipToBounds="True"/>
+              </Border>
+              <Border Grid.Column="2" Background="#20242E" CornerRadius="9" Padding="10" Margin="8,0,0,0">
+                <StackPanel>
+                  <TextBlock Text="OBJECT PROPERTIES" FontWeight="Bold" Foreground="#AAB8FF" Margin="3,4,3,12"/>
+                  <TextBlock Text="Selected object" Foreground="#9AA5B5"/>
+                  <TextBox x:Name="ObjectNameInput" Margin="3,4,3,10"/>
+                  <TextBlock Text="Position (X / Y / Z)" Foreground="#9AA5B5"/>
+                  <UniformGrid Columns="3"><TextBox x:Name="ObjectX" Text="0"/><TextBox x:Name="ObjectY" Text="0"/><TextBox x:Name="ObjectZ" Text="0"/></UniformGrid>
+                  <TextBlock Text="Scale (X / Y / Z)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <UniformGrid Columns="3"><TextBox x:Name="ScaleX" Text="1"/><TextBox x:Name="ScaleY" Text="1"/><TextBox x:Name="ScaleZ" Text="1"/></UniformGrid>
+                  <TextBlock Text="Y rotation (degrees)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <TextBox x:Name="RotationY" Text="0"/>
+                  <Button Content="Apply transforms" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,14,3,3"/>
+                  <TextBlock Text="Current viewport supports real 3D geometry and numeric transforms. Camera navigation and mesh editing are planned for a later iteration."
+                             Foreground="#8996AA" TextWrapping="Wrap" FontSize="11" Margin="4,14,4,0"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+          </TabItem>
+
+          <TabItem x:Name="ExtensionsTab" Header="Extensions">
+            <ScrollViewer Background="#171A21" VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="24" MaxWidth="820" HorizontalAlignment="Left">
+                <TextBlock Text="Language extensions" FontSize="26" FontWeight="SemiBold" Margin="0,6,0,6"/>
+                <TextBlock Text="Studio ships with exactly three language integrations." Foreground="#9AA5B5" Margin="0,0,0,18"/>
+                <Border Background="#20242E" BorderBrush="#343B49" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel><TextBlock Text="JavaScript" FontSize="18" FontWeight="SemiBold"/><TextBlock Text=".js / .mjs • Node.js runtime • npm / pnpm" Foreground="#A5B0C1" Margin="0,5,0,0"/><TextBlock x:Name="JsStatus" Text="Enabled" Foreground="#91A0FF" Margin="0,8,0,0"/></StackPanel>
+                    <Button Grid.Column="1" Content="Enable / Disable" Click="ToggleJavaScript_Click" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Border Background="#20242E" BorderBrush="#343B49" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel><TextBlock Text="Python" FontSize="18" FontWeight="SemiBold"/><TextBlock Text=".py • Python interpreter • pip / virtual environments" Foreground="#A5B0C1" Margin="0,5,0,0"/><TextBlock x:Name="PythonStatus" Text="Enabled" Foreground="#91A0FF" Margin="0,8,0,0"/></StackPanel>
+                    <Button Grid.Column="1" Content="Enable / Disable" Click="TogglePython_Click" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Border Background="#20242E" BorderBrush="#343B49" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel><TextBlock Text="C#" FontSize="18" FontWeight="SemiBold"/><TextBlock Text=".cs / .csproj / .sln • .NET SDK • dotnet build / run" Foreground="#A5B0C1" Margin="0,5,0,0"/><TextBlock x:Name="CSharpStatus" Text="Enabled" Foreground="#91A0FF" Margin="0,8,0,0"/></StackPanel>
+                    <Button Grid.Column="1" Content="Enable / Disable" Click="ToggleCSharp_Click" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Grid>
+
+      <Border x:Name="TerminalPanel" Grid.Row="2" Background="#11151C" BorderBrush="#343B49" BorderThickness="0,1,0,0" Padding="8">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <DockPanel Grid.Row="0">
+            <TextBlock Text="TERMINAL" Foreground="#AAB8FF" FontWeight="Bold" FontSize="11" Margin="5,3"/>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+              <Button Content="PowerShell" Click="PowerShell_Click"/><Button Content="CMD" Click="CommandPrompt_Click"/>
+              <Button Content="Clear" Click="ClearTerminal_Click"/><Button Content="Hide" Click="ToggleTerminal_Click"/>
+            </StackPanel>
+          </DockPanel>
+          <TextBox x:Name="TerminalOutput" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                   VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="#11151C"
+                   FontFamily="Cascadia Mono, Consolas" FontSize="12" Padding="6"/>
+          <DockPanel Grid.Row="2" Margin="2,6,2,0">
+            <TextBlock Text="›" Foreground="#8FA0FF" FontSize="18" VerticalAlignment="Center" Margin="4,0,8,0"/>
+            <Button Content="Send" Click="SendTerminalCommand_Click" DockPanel.Dock="Right" Background="#536BD6"/>
+            <TextBox x:Name="TerminalCommand" KeyDown="TerminalCommand_KeyDown" ToolTip="Enter a real PowerShell or CMD command"/>
+          </DockPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="3" Background="#536BD6" Padding="8,3">
+        <DockPanel><TextBlock x:Name="StatusText" Text="Ready" Foreground="White"/>
+          <TextBlock x:Name="ProjectStatusText" Text="No project opened" Foreground="#E3E8FF" DockPanel.Dock="Right"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
