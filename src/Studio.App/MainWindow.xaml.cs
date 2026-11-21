@@ -564,7 +564,7 @@ public partial class MainWindow : Window
                     cwd = projectDirectory,
                     stopAtEntry = false,
                     justMyCode = true,
-                    console = "internalConsole
+                    console = "internalConsole"
                 };
                 StartDebugAdapter(netcoredbg, new[] { "--interpreter=vscode" }, projectDirectory, "coreclr", launch, ".NET");
                 return;
