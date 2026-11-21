@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
+<style>html,body,#editor{height:100%;width:100%;margin:0;overflow:hidden;background:#171a21}</style>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script></head>
+<body><div id="editor"></div><script>
+require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});
+require(["vs/editor/editor.main"],function(){
+ window.editor=monaco.editor.create(document.getElementById("editor"),{value:"// Welcome to Studio.exe\n// Open a file and start creating.",language:"javascript",theme:"vs-dark",automaticLayout:true,minimap:{enabled:true},fontSize:14,wordWrap:"on",tabSize:4,scrollBeyondLastLine:false});
+ window.studioSetValue=function(value,language){window.editor.setValue(value);monaco.editor.setModelLanguage(window.editor.getModel(),language);};
+ window.editor.onDidChangeModelContent(function(){window.chrome.webview.postMessage({text:window.editor.getValue()});});
+ monaco.languages.registerCompletionItemProvider("python",{provideCompletionItems:function(){return {suggestions:[{label:"def",kind:monaco.languages.CompletionItemKind.Keyword,insertText:"def ${1:name}(${2:args}):\n\t${0:pass}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet},{label:"class",kind:monaco.languages.CompletionItemKind.Keyword,insertText:"class ${1:Name}:\n\tdef __init__(self):\n\t\t${0:pass}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet}]};}});
+ monaco.languages.registerCompletionItemProvider("csharp",{provideCompletionItems:function(){return {suggestions:[{label:"cw",kind:monaco.languages.CompletionItemKind.Snippet,insertText:"Console.WriteLine(${1:value});${0}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet},{label:"prop",kind:monaco.languages.CompletionItemKind.Snippet,insertText:"public ${1:string} ${2:Name} { get; set; }",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet}]};}});
+});
+</script></body></html>
