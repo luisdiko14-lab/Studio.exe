@@ -1,14 +1,226 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
-<style>html,body,#editor{height:100%;width:100%;margin:0;overflow:hidden;background:#171a21}</style>
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script></head>
-<body><div id="editor"></div><script>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html,body,#editor{height:100%;width:100%;margin:0;overflow:hidden;background:#171a21}
+    *{box-sizing:border-box}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+</head>
+<body>
+<div id="editor"></div>
+<script>
 require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});
 require(["vs/editor/editor.main"],function(){
- window.editor=monaco.editor.create(document.getElementById("editor"),{value:"// Welcome to Studio.exe\n// Open a file and start creating.",language:"javascript",theme:"vs-dark",automaticLayout:true,minimap:{enabled:true},fontSize:14,wordWrap:"on",tabSize:4,scrollBeyondLastLine:false});
- window.studioSetValue=function(value,language){window.editor.setValue(value);monaco.editor.setModelLanguage(window.editor.getModel(),language);};
- window.editor.onDidChangeModelContent(function(){window.chrome.webview.postMessage({text:window.editor.getValue()});});
- monaco.languages.registerCompletionItemProvider("python",{provideCompletionItems:function(){return {suggestions:[{label:"def",kind:monaco.languages.CompletionItemKind.Keyword,insertText:"def ${1:name}(${2:args}):\n\t${0:pass}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet},{label:"class",kind:monaco.languages.CompletionItemKind.Keyword,insertText:"class ${1:Name}:\n\tdef __init__(self):\n\t\t${0:pass}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet}]};}});
- monaco.languages.registerCompletionItemProvider("csharp",{provideCompletionItems:function(){return {suggestions:[{label:"cw",kind:monaco.languages.CompletionItemKind.Snippet,insertText:"Console.WriteLine(${1:value});${0}",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet},{label:"prop",kind:monaco.languages.CompletionItemKind.Snippet,insertText:"public ${1:string} ${2:Name} { get; set; }",insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet}]};}});
+  const editor=monaco.editor.create(document.getElementById("editor"),{
+    value:"// Welcome to Studio.exe\n// Open a file and start creating.",
+    language:"javascript",theme:"vs-dark",automaticLayout:true,minimap:{enabled:true},
+    fontSize:14,wordWrap:"on",tabSize:4,scrollBeyondLastLine:false,
+    smoothScrolling:true,mouseWheelZoom:true,quickSuggestions:{other:true,comments:false,strings:false},
+    suggestOnTriggerCharacters:true,formatOnPaste:true,formatOnType:true
+  });
+  let settingValue=false;
+  window.editor=editor;
+  window.studioSetValue=function(value,language){
+    settingValue=true;
+    editor.setValue(value);
+    monaco.editor.setModelLanguage(editor.getModel(),language||"plaintext");
+    setTimeout(()=>{settingValue=false;},0);
+  };
+  window.studioSetDiagnostics=function(items){
+    const model=editor.getModel(); if(!model)return;
+    const markers=(items||[]).map(d=>({
+      startLineNumber:Math.max(1,d.line||1),startColumn:Math.max(1,d.column||1),
+      endLineNumber:Math.max(1,d.line||1),endColumn:Math.max(2,(d.column||1)+1),
+      message:d.message||"Diagnostic",
+      severity:d.severity==="Warning"?monaco.MarkerSeverity.Warning:monaco.MarkerSeverity.Error,
+      source:"Studio.exe"
+    }));
+    monaco.editor.setModelMarkers(model,"studio-diagnostics",markers);
+  };
+  editor.onDidChangeModelContent(()=>{
+    if(!settingValue) window.chrome.webview.postMessage({text:editor.getValue()});
+  });
+
+  const K=monaco.languages.CompletionItemKind;
+  const R=monaco.languages.CompletionItemInsertTextRule;
+  const pyKeywords=("False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield").split(" ");
+  const pyBuiltins={
+    print:"print(*objects, sep=' ', end='\\n') — write values to standard output",
+    len:"len(obj) — return the number of items in an object",
+    range:"range(start, stop, step) — generate an arithmetic sequence",
+    enumerate:"enumerate(iterable, start=0) — yield index/value pairs",
+    zip:"zip(*iterables) — iterate over items in parallel",
+    map:"map(function, iterable) — apply a function to each item",
+    filter:"filter(function, iterable) — select matching items",
+    sorted:"sorted(iterable, key=None, reverse=False) — return a sorted list",
+    isinstance:"isinstance(object, classinfo) — test an object's type",
+    issubclass:"issubclass(class, classinfo) — test class inheritance",
+    super:"super() — access the parent implementation",
+    property:"property(fget, fset, fdel, doc) — managed attribute",
+    setattr:"setattr(object, name, value) — set a named attribute",
+    getattr:"getattr(object, name[, default]) — read a named attribute",
+    hasattr:"hasattr(object, name) — test for an attribute",
+    open:"open(file, mode='r', encoding=None) — open a file",
+    json:"json — JSON encoder and decoder module",
+    Path:"pathlib.Path — object-oriented filesystem paths",
+    dataclass:"dataclasses.dataclass — generate data-class methods",
+    Optional:"typing.Optional — optional type annotation",
+    List:"typing.List — typed list annotation",
+    Dict:"typing.Dict — typed dictionary annotation",
+    Any:"typing.Any — unconstrained typing value",
+    "asyncio.run":"asyncio.run(coro) — run an async coroutine",
+    "requests.get":"requests.get(url, params=None, **kwargs) — send HTTP GET",
+    "requests.post":"requests.post(url, data=None, json=None, **kwargs) — send HTTP POST"
+  };
+  const pyModules=("abc argparse array asyncio base64 bisect collections concurrent.futures contextlib copy csv dataclasses datetime decimal difflib enum functools fnmatch fractions glob hashlib heapq hmac html http importlib inspect io itertools json logging math multiprocessing os pathlib pickle platform pprint queue random re secrets shutil signal socket sqlite3 statistics string subprocess sys tempfile textwrap threading time traceback types typing unittest urllib uuid venv warnings zipfile").split(" ");
+  const csKeywords=("abstract as async await base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using var virtual void volatile while").split(" ");
+  const csTypes=("Action Array ArrayList ArgumentException ArgumentNullException ArgumentOutOfRangeException AsyncLocal Attribute BinaryReader BinaryWriter CancellationToken CancellationTokenSource CharComparer Collection Comparer Console DateOnly DateTime DateTimeOffset Dictionary Directory DirectoryInfo Enum Environment Exception File FileInfo FileStream Func Guid HashSet HttpClient ICollection IEnumerable IEnumerator IList ILookup Index KeyNotFoundException List Math MemoryStream Nullable Object Path Random ReadOnlyCollection Regex SemaphoreSlim Span String StringBuilder Stream StreamReader StreamWriter Task TaskCompletionSource TimeSpan Tuple Uri ValueTask Version Stopwatch").split(" ");
+  const csDocs={
+    "Console.WriteLine":"Writes the specified data followed by the current line terminator.",
+    "Console.ReadLine":"Reads the next line of characters from the standard input stream.",
+    "Enumerable.Where":"Filters a sequence of values based on a predicate.",
+    "Enumerable.Select":"Projects each element of a sequence into a new form.",
+    "Task.Run":"Queues the specified work to run on the ThreadPool.",
+    "File.ReadAllText":"Opens a text file, reads all text, and closes the file.",
+    "Path.Combine":"Combines strings into a path.",
+    "StringBuilder.Append":"Appends information to the end of the current StringBuilder."
+  };
+  const suggestions=(items,range)=>items.map(x=>typeof x==="string"
+    ? {label:x,kind:K.Keyword,insertText:x,range,sortText:"2"+x}
+    : {...x,range});
+  function currentWord(model,position){
+    return model.getWordUntilPosition(position);
+  }
+  function localNames(model,language){
+    const text=model.getValue(),items=[];
+    const patterns=language==="python"
+      ? [/^\s*def\s+([A-Za-z_]\w*)/gm,/^\s*class\s+([A-Za-z_]\w*)/gm,/^\s*([A-Za-z_]\w*)\s*=/gm,/^\s*import\s+([A-Za-z_]\w*)/gm,/^\s*from\s+[\w.]+\s+import\s+([A-Za-z_]\w*)/gm]
+      : [/\b(?:class|struct|interface|enum|record|namespace)\s+([A-Za-z_]\w*)/g,/\b(?:void|int|string|bool|double|float|var|decimal|Task|object|long|DateTime)\s+([A-Za-z_]\w*)\s*(?=[=(;,{])/g,/\b(?:public|private|protected|internal)\s+(?:static\s+)?[\w<>\[\],.?]+\s+([A-Za-z_]\w*)\s*(?=[=(;])/g];
+    for(const re of patterns){let m;while((m=re.exec(text))!==null){if(!items.includes(m[1]))items.push(m[1]);}}
+    return items;
+  }
+  monaco.languages.registerCompletionItemProvider("python",{
+    triggerCharacters:[".","@"],
+    provideCompletionItems(model,position){
+      const word=currentWord(model,position),range={startLineNumber:position.lineNumber,startColumn:word.startColumn,endLineNumber:position.lineNumber,endColumn:word.endColumn};
+      const line=model.getLineContent(position.lineNumber),before=line.slice(0,position.column-1);
+      let names=[];
+      if(/\bimport\s+[\w.]*$/.test(before)||/\bfrom\s+[\w.]*$/.test(before)){
+        names=pyModules.map(x=>({label:x,kind:K.Module,detail:"Python standard library module"}));
+      }else if(/\b(?:self|cls)\.[\w]*$/.test(before)){
+        names=localNames(model,"python").map(x=>({label:x,kind:K.Field,detail:"Symbol in this file"}));
+      }else{
+        names=[...pyKeywords.map(x=>({label:x,kind:K.Keyword})),
+          ...Object.keys(pyBuiltins).map(x=>({label:x,kind:K.Function,detail:pyBuiltins[x],documentation:{value:pyBuiltins[x]}})),
+          ...pyModules.map(x=>({label:x,kind:K.Module,detail:"Standard library"})),
+          ...localNames(model,"python").map(x=>({label:x,kind:K.Variable,detail:"Defined in current file"})),
+          {label:"if __name__ == '__main__':",kind:K.Snippet,insertText:"if __name__ == \"__main__\":\n\t$0",insertTextRules:R.InsertAsSnippet},
+          {label:"class with initializer",kind:K.Snippet,insertText:"class ${1:Name}:\n\tdef __init__(self, ${2:value}):\n\t\tself.${2:value} = ${2:value}\n\t\t$0",insertTextRules:R.InsertAsSnippet},
+          {label:"async function",kind:K.Snippet,insertText:"async def ${1:name}(${2:args}):\n\t$0",insertTextRules:R.InsertAsSnippet},
+          {label:"try / except",kind:K.Snippet,insertText:"try:\n\t$1\nexcept ${2:Exception} as ${3:error}:\n\t$0",insertTextRules:R.InsertAsSnippet}];
+      }
+      const unique=new Map(names.map(x=>[x.label,x]));
+      return {suggestions:suggestions([...unique.values()],range)};
+    }
+  });
+  monaco.languages.registerCompletionItemProvider("csharp",{
+    triggerCharacters:[".","<",":"],
+    provideCompletionItems(model,position){
+      const word=currentWord(model,position),range={startLineNumber:position.lineNumber,startColumn:word.startColumn,endLineNumber:position.lineNumber,endColumn:word.endColumn};
+      const before=model.getLineContent(position.lineNumber).slice(0,position.column-1);
+      let names=[];
+      if(/\bConsole\.[\w]*$/.test(before)) names=["WriteLine","Write","ReadLine","ReadKey","Error","Out","In"].map(x=>({label:x,kind:K.Method,detail:"System.Console"}));
+      else if(/\bMath\.[\w]*$/.test(before)) names=["Abs","Ceiling","Floor","Max","Min","Pow","Round","Sqrt","Sin","Cos","PI","E"].map(x=>({label:x,kind:K.Method,detail:"System.Math"}));
+      else if(/\b(?:File|Directory|Path)\.[\w]*$/.test(before)) names=["Exists","ReadAllText","ReadAllLines","WriteAllText","Create","Delete","Combine","GetExtension","GetFileName","GetDirectoryName","EnumerateFiles","EnumerateDirectories"].map(x=>({label:x,kind:K.Method,detail:"System.IO"}));
+      else names=[
+        ...csKeywords.map(x=>({label:x,kind:K.Keyword})),
+        ...csTypes.map(x=>({label:x,kind:K.Class,detail:"System / .NET API"})),
+        ...localNames(model,"csharp").map(x=>({label:x,kind:K.Variable,detail:"Defined in current file"})),
+        {label:"async Task method",kind:K.Snippet,insertText:"public async Task ${1:MethodName}(${2:})\n{\n    $0\n}",insertTextRules:R.InsertAsSnippet},
+        {label:"property",kind:K.Snippet,insertText:"public ${1:string} ${2:Name} { get; set; }",insertTextRules:R.InsertAsSnippet},
+        {label:"constructor",kind:K.Snippet,insertText:"public ${1:ClassName}(${2:})\n{\n    $0\n}",insertTextRules:R.InsertAsSnippet},
+        {label:"foreach",kind:K.Snippet,insertText:"foreach (var ${1:item} in ${2:collection})\n{\n    $0\n}",insertTextRules:R.InsertAsSnippet},
+        {label:"try / catch",kind:K.Snippet,insertText:"try\n{\n    $1\n}\ncatch (Exception ${2:ex})\n{\n    $0\n}",insertTextRules:R.InsertAsSnippet},
+        {label:"LINQ query",kind:K.Snippet,insertText:"var ${1:result} = ${2:items}.Where(x => ${3:condition}).Select(x => ${4:x});$0",insertTextRules:R.InsertAsSnippet}
+      ];
+      const unique=new Map(names.map(x=>[x.label,x]));
+      return {suggestions:suggestions([...unique.values()],range)};
+    }
+  });
+
+  const signatures={
+    print:"print(*objects, sep=' ', end='\\n')",
+    len:"len(obj)",
+    range:"range(start, stop=None, step=1)",
+    enumerate:"enumerate(iterable, start=0)",
+    sorted:"sorted(iterable, *, key=None, reverse=False)",
+    open:"open(file, mode='r', buffering=-1, encoding=None)",
+    "Console.WriteLine":"WriteLine(string? value)",
+    "Console.ReadLine":"ReadLine()",
+    "Math.Round":"Round(double value, int digits)",
+    "File.ReadAllText":"ReadAllText(string path, Encoding? encoding = null)",
+    "Enumerable.Where":"Where<TSource>(IEnumerable<TSource>, Func<TSource,bool>)",
+    "Enumerable.Select":"Select<TSource,TResult>(IEnumerable<TSource>, Func<TSource,TResult>)",
+    "Task.Run":"Run(Func<Task> function)"
+  };
+  const docs={...pyBuiltins,...csDocs};
+  function wordAt(model,pos){
+    const w=model.getWordAtPosition(pos);return w?w.word:"";
+  }
+  for(const language of ["python","csharp"]){
+    monaco.languages.registerHoverProvider(language,{
+      provideHover(model,position){
+        const word=wordAt(model,position);
+        const line=model.getLineContent(position.lineNumber);
+        const qualified=(line.slice(0,position.column-1).match(/[A-Za-z_]\w*\.$/)||[])[0]||"";
+        const key=qualified+word;
+        const value=docs[key]||docs[word];
+        if(!value)return null;
+        return {contents:[{value:"**"+key+"**"},{value} ]};
+      }
+    });
+    monaco.languages.registerSignatureHelpProvider(language,{
+      signatureHelpTriggerCharacters:["(",",","="],
+      provideSignatureHelp(model,position){
+        const prefix=model.getValueInRange({startLineNumber:Math.max(1,position.lineNumber-2),startColumn:1,endLineNumber:position.lineNumber,endColumn:position.column});
+        const match=prefix.match(/([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*\([^()]*$/);
+        if(!match)return {value:{signatures:[],activeSignature:0,activeParameter:0},dispose(){}};
+        const sig=signatures[match[1]];
+        if(!sig)return {value:{signatures:[],activeSignature:0,activeParameter:0},dispose(){}};
+        const args=(prefix.slice(prefix.lastIndexOf("(")+1).match(/,/g)||[]).length;
+        return {value:{signatures:[{label:sig,documentation:docs[match[1]]||"",parameters:sig.slice(sig.indexOf("(")+1,-1).split(",").map(x=>({label:x.trim()}))}],activeSignature:0,activeParameter:args},dispose(){}};
+      }
+    });
+    monaco.languages.registerDocumentSymbolProvider(language,{
+      provideDocumentSymbols(model){
+        const symbols=[],text=model.getValue(),re=language==="python"?/^\s*(async\s+)?(def|class)\s+([A-Za-z_]\w*)/gm:/\b(class|struct|interface|enum|record|namespace|void|int|string|bool|Task)\s+([A-Za-z_]\w*)\s*(?=[({])/g;
+        let m;while((m=re.exec(text))!==null){
+          const line=model.getPositionAt(m.index).lineNumber;
+          const kind=(m[2]||m[1]).toLowerCase();
+          symbols.push({name:m[3]||m[2],detail:kind,kind:kind.includes("class")?K.Class:kind.includes("namespace")?K.Module:K.Function,range:new monaco.Range(line,1,line,model.getLineMaxColumn(line)),selectionRange:new monaco.Range(line,1,line,model.getLineMaxColumn(line))});
+        }
+        return symbols;
+      }
+    });
+    monaco.languages.registerDefinitionProvider(language,{
+      provideDefinition(model,position){
+        const name=wordAt(model,position);if(!name)return null;
+        const text=model.getValue(),patterns=language==="python"?[/^\s*def\s+NAME\b/m,/^\s*class\s+NAME\b/m,/^\s*NAME\s*=/m]:[/\b(?:class|struct|interface|enum|record|namespace)\s+NAME\b/,/\b(?:void|int|string|bool|var|Task|double)\s+NAME\s*(?=[=(;])/];
+        for(const template of patterns){
+          const re=new RegExp(template.source.replace("NAME",name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")),"m");
+          const m=re.exec(text);if(m){const p=model.getPositionAt(m.index+m[0].indexOf(name));return {uri:model.uri,range:new monaco.Range(p.lineNumber,p.column,p.lineNumber,p.column+name.length)};}
+        }
+        return null;
+      }
+    });
+  }
+  monaco.editor.setTheme("vs-dark");
+  window.addEventListener("resize",()=>editor.layout());
 });
-</script></body></html>
+</script>
+</body>
+</html>

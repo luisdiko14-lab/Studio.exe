@@ -97,6 +97,8 @@
           <MenuItem Header="_Run">
             <MenuItem Header="Run Current File" Click="Run_Click"/>
             <MenuItem Header="Build Project" Click="Build_Click"/>
+            <MenuItem Header="Debug Current File" Click="Debug_Click"/>
+            <MenuItem Header="Check Syntax / Diagnostics" Click="CheckSyntax_Click"/>
             <MenuItem Header="Stop" Click="Stop_Click"/>
           </MenuItem>
           <MenuItem Header="_Help"><MenuItem Header="About Studio.exe" Click="About_Click"/></MenuItem>
@@ -105,6 +107,8 @@
           <Button Content="Open Project" Click="OpenProject_Click"/>
           <Button Content="Run ▶" Click="Run_Click" Background="#536BD6"/>
           <Button Content="Build" Click="Build_Click"/>
+          <Button Content="Debug" Click="Debug_Click"/>
+          <Button Content="Check" Click="CheckSyntax_Click"/>
           <Button Content="Stop ■" Click="Stop_Click"/>
         </StackPanel>
       </DockPanel>
@@ -142,7 +146,7 @@
               <Grid Grid.Row="1"><TextBox x:Name="EditorText" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
                        VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                        FontFamily="Cascadia Code, Consolas" FontSize="14" BorderThickness="0" Padding="16"
-                       Background="#171A21" TextChanged="EditorText_TextChanged" SpellCheck.IsEnabled="False"/><wv2:WebView2 x:Name="MonacoEditor" Visibility="Collapsed"/></Grid>
+                       Background="#171A21" TextChanged="EditorText_TextChanged" SpellCheck.IsEnabled="False"/></Grid>
             </Grid>
           </TabItem>
 
@@ -176,9 +180,12 @@
                   <UniformGrid Columns="3"><TextBox x:Name="ObjectX" Text="0"/><TextBox x:Name="ObjectY" Text="0"/><TextBox x:Name="ObjectZ" Text="0"/></UniformGrid>
                   <TextBlock Text="Scale (X / Y / Z)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
                   <UniformGrid Columns="3"><TextBox x:Name="ScaleX" Text="1"/><TextBox x:Name="ScaleY" Text="1"/><TextBox x:Name="ScaleZ" Text="1"/></UniformGrid>
-                  <TextBlock Text="Y rotation (degrees)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
-                  <TextBox x:Name="RotationY" Text="0"/>
-                  <Button Content="Apply transforms" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,14,3,3"/>
+                  <TextBlock Text="Rotation X / Y / Z (degrees)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <UniformGrid Columns="3"><TextBox x:Name="RotationX" Text="0"/><TextBox x:Name="RotationY" Text="0"/><TextBox x:Name="RotationZ" Text="0"/></UniformGrid>
+                  <TextBlock Text="Material color (#RRGGBB)" Foreground="#9AA5B5" Margin="3,10,3,0"/>
+                  <TextBox x:Name="ObjectColor" Text="#718EFF"/>
+                  <Button Content="Apply transforms + material" Click="ApplyTransform_Click" Background="#536BD6" Margin="3,10,3,3"/>
+                  <Button Content="Subdivide selected mesh" Click="SubdivideMesh_Click" Margin="3,3,3,3"/>
                   <TextBlock Text="Orbit: left-drag · Pan: right-drag · Zoom: mouse wheel. Helix viewport adds a grid and view cube."
                              Foreground="#8996AA" TextWrapping="Wrap" FontSize="11" Margin="4,14,4,0"/>
                 </StackPanel>
@@ -188,8 +195,8 @@
 
 
           <TabItem x:Name="MonacoTab" Header="Monaco Editor"><wv2:WebView2 x:Name="MonacoEditor"/></TabItem>
-          <TabItem Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
-          <TabItem Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
+          <TabItem x:Name="TerminalTab" Header="ConPTY Terminal"><Grid Background="#10151D"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal" Margin="8"><TextBlock Text="Native Windows Terminal · ConPTY" Foreground="#AAB8FF" VerticalAlignment="Center" Margin="4,0,16,0"/><Button Content="PowerShell" Click="NativePowerShell_Click"/><Button Content="CMD" Click="NativeCommandPrompt_Click"/><Button Content="Restart" Click="NativeRestart_Click"/></StackPanel><term:EasyTerminalControl x:Name="ConPtyTerminal" Grid.Row="1" StartupCommandLine="pwsh.exe" FontFamilyWhenSettingTheme="Cascadia Mono" LogConPTYOutput="True" Win32InputMode="True" InputCapture="TabKey,DirectionKeys"/></Grid></TabItem>
+          
           <TabItem x:Name="ExtensionsTab" Header="Extensions">
             <ScrollViewer Background="#171A21" VerticalScrollBarVisibility="Auto">
               <StackPanel Margin="24" MaxWidth="820" HorizontalAlignment="Left">
