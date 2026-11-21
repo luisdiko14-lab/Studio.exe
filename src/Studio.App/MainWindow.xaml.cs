@@ -378,6 +378,9 @@ public partial class MainWindow : Window
     private void ShowEditor_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = EditorTab;
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
     private void ShowExtensions_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ExtensionsTab;
+    private void NativePowerShell_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "pwsh.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
     private void RefreshExtensionStatus()
     {
         JsStatus.Text = _settings.JavaScriptEnabled ? "Enabled" : "Disabled";
@@ -406,12 +409,32 @@ public partial class MainWindow : Window
     private void AddSceneObject(string shape)
     {
         var number = _scene.Count + 1;
-        var mesh = shape.Equals("Sphere", StringComparison.OrdinalIgnoreCase) ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+        var mesh = CreatePrimitiveMesh(shape);
         var material = new DiffuseMaterial(new SolidColorBrush(_scene.Count % 2 == 0 ? Color.FromRgb(113, 142, 255) : Color.FromRgb(71, 184, 173)));
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var item = new SceneObject { Name = $"{shape} {number}", Shape = shape, Mesh = mesh, Model = model };
         UpdateObjectTransform(item); _scene.Add(item); _world.Children.Add(model);
         RefreshSceneList(item.Name); StatusText.Text = $"{item.Name} added to the 3D scene";
+    }
+    private static MeshGeometry3D CreatePrimitiveMesh(string shape)
+    {
+        if (shape == "Sphere") return CreateSphereMesh(0.75, 24, 32);
+        if (shape == "Plane") return new MeshGeometry3D { Positions = new Point3DCollection { new(-1,0,-1), new(1,0,-1), new(1,0,1), new(-1,0,1) }, TriangleIndices = new Int32Collection { 0,1,2,0,2,3 } };
+        if (shape == "Cylinder" || shape == "Cone")
+        {
+            const int n = 32; var p = new Point3DCollection(); var t = new Int32Collection();
+            for (var i=0;i<n;i++) { var a=2*Math.PI*i/n; p.Add(new Point3D(Math.Cos(a)*0.7,-0.8,Math.Sin(a)*0.7)); p.Add(new Point3D(shape=="Cone"?0:Math.Cos(a)*0.7,0.8,shape=="Cone"?0:Math.Sin(a)*0.7)); }
+            for (var i=0;i<n;i++) { var j=(i+1)%n; t.Add(2*i);t.Add(2*j);t.Add(2*i+1); if(shape=="Cylinder"){t.Add(2*j);t.Add(2*j+1);t.Add(2*i+1);} }
+            return new MeshGeometry3D { Positions=p, TriangleIndices=t };
+        }
+        if (shape == "Torus")
+        {
+            const int major=40, minor=16; var p=new Point3DCollection(); var t=new Int32Collection();
+            for(var i=0;i<=major;i++){var u=2*Math.PI*i/major;for(var j=0;j<=minor;j++){var v=2*Math.PI*j/minor;var r=0.55+0.2*Math.Cos(v);p.Add(new Point3D(r*Math.Cos(u),0.2*Math.Sin(v),r*Math.Sin(u)));}}
+            for(var i=0;i<major;i++)for(var j=0;j<minor;j++){var a=i*(minor+1)+j;var b=a+minor+1;t.Add(a);t.Add(b);t.Add(a+1);t.Add(a+1);t.Add(b);t.Add(b+1);}
+            return new MeshGeometry3D { Positions=p, TriangleIndices=t };
+        }
+        return CreateCubeMesh(1.0);
     }
     private static MeshGeometry3D CreateCubeMesh(double size)
     {
@@ -500,7 +523,7 @@ public partial class MainWindow : Window
     {
         var source = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
         if (source is null) return;
-        var mesh = source.Shape == "Sphere" ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+        var mesh = CreatePrimitiveMesh(source.Shape);
         var material = new DiffuseMaterial(new SolidColorBrush(Color.FromRgb(167, 131, 255)));
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var copy = new SceneObject
@@ -544,7 +567,7 @@ public partial class MainWindow : Window
             _scene.Clear(); _sceneNames.Clear();
             foreach (var saved in doc.Objects)
             {
-                var mesh = saved.Shape == "Sphere" ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+                var mesh = CreatePrimitiveMesh(saved.Shape);
                 var material = new DiffuseMaterial(new SolidColorBrush(Color.FromRgb(113, 142, 255)));
                 var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
                 var item = new SceneObject
