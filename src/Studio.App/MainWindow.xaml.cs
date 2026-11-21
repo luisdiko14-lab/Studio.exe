@@ -34,6 +34,9 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _searchCancellation;
     private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private Point _modelViewportMouseDown;
+    private int _lastHitTriangleIndex = -1, _lastHitVertexIndex = -1;
+    private Point3D _lastHitLocalPoint;
+    private Vector3D _lastHitLocalNormal;
     private StdioProtocolProcess? _languageServer, _debugAdapter;
     private string? _languageServerId, _documentUri;
     private AppSettings _settings;
@@ -1224,7 +1227,23 @@ public partial class MainWindow : Window
         var released = e.GetPosition(ModelViewport);
         if ((released - _modelViewportMouseDown).Length > 5) return; // preserve orbit drag
         var selected = HitTestScene(released);
-        if (selected is not null) SceneList.SelectedItem = selected.Name;
+        if (selected is null) return;
+        SceneList.SelectedItem = selected.Name;
+        if (_lastHitTriangleIndex >= 0)
+        {
+            TopologyTriangleIndex.Text = _lastHitTriangleIndex.ToString(CultureInfo.InvariantCulture);
+            ExtrudeTriangleIndex.Text = _lastHitTriangleIndex.ToString(CultureInfo.InvariantCulture);
+        }
+        if (SculptModeCheckBox.IsChecked == true)
+        {
+            ApplySculptBrush(selected);
+        }
+        else if (_lastHitVertexIndex >= 0 && _lastHitVertexIndex < _vertexRows.Count)
+        {
+            VertexGrid.SelectedIndex = _lastHitVertexIndex;
+            VertexGrid.ScrollIntoView(VertexGrid.SelectedItem);
+            StatusText.Text = selected.Name + " · selected face " + _lastHitTriangleIndex + ", vertex " + _lastHitVertexIndex;
+        }
     }
 
     private SceneObject? HitTestScene(Point screenPoint)
@@ -1250,6 +1269,7 @@ public partial class MainWindow : Window
         direction.Normalize();
 
         SceneObject? nearest = null;
+        _lastHitTriangleIndex = -1; _lastHitVertexIndex = -1;
         var nearestDistance = double.PositiveInfinity;
         foreach (var item in _scene)
         {
@@ -1264,10 +1284,56 @@ public partial class MainWindow : Window
                 {
                     nearestDistance = distance;
                     nearest = item;
+                    _lastHitTriangleIndex = i / 3;
+                    var worldHit = camera.Position + direction * distance;
+                    var inverse = item.Model.Transform.Value;
+                    inverse.Invert();
+                    _lastHitLocalPoint = inverse.Transform(worldHit);
+                    var localA = item.Mesh.Positions[indices[i]];
+                    var localB = item.Mesh.Positions[indices[i + 1]];
+                    var localC = item.Mesh.Positions[indices[i + 2]];
+                    _lastHitLocalNormal = Vector3D.CrossProduct(localB - localA, localC - localA);
+                    if (_lastHitLocalNormal.Length > 0) _lastHitLocalNormal.Normalize();
+                    _lastHitVertexIndex = new[] { indices[i], indices[i + 1], indices[i + 2] }
+                        .OrderBy(index => (item.Mesh.Positions[index] - _lastHitLocalPoint).LengthSquared).First();
                 }
             }
         }
         return nearest;
+    }
+
+    private void ApplySculptBrush(SceneObject item)
+    {
+        if (!TryNumber(SculptRadiusInput.Text, out var radius) || radius <= 0 ||
+            !TryNumber(SculptStrengthInput.Text, out var strength) || Math.Abs(strength) > 10)
+        {
+            MessageBox.Show("Enter a positive brush radius and a strength between -10 and 10.", "Sculpt brush");
+            return;
+        }
+        if (_lastHitLocalNormal.Length < 0.000001) return;
+        var normal = _lastHitLocalNormal;
+        var positions = new Point3DCollection();
+        var affected = 0;
+        foreach (var vertex in item.Mesh.Positions)
+        {
+            var delta = vertex - _lastHitLocalPoint;
+            var distance = delta.Length;
+            if (distance >= radius) { positions.Add(vertex); continue; }
+            var falloff = 1.0 - distance / radius;
+            falloff *= falloff * (3.0 - 2.0 * falloff);
+            var amount = strength * falloff;
+            positions.Add(vertex + normal * amount);
+            affected++;
+        }
+        item.Mesh = new MeshGeometry3D
+        {
+            Positions = positions,
+            TriangleIndices = new Int32Collection(item.Mesh.TriangleIndices),
+            TextureCoordinates = new PointCollection(item.Mesh.TextureCoordinates)
+        };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = "Sculpted " + affected + " vertex/vertices on " + item.Name;
     }
 
     private static bool RayIntersectsTriangle(Point3D origin, Vector3D direction,
@@ -1933,6 +1999,73 @@ public partial class MainWindow : Window
         item.Model.Geometry = item.Mesh;
         RefreshVertexRows(item);
         StatusText.Text = item.Name + ": split edge shared by " + splitCount + " triangle(s)";
+    }
+
+    private void BevelTriangleEdge_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) return;
+        if (!int.TryParse(TopologyTriangleIndex.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var triangle) ||
+            !int.TryParse(SplitEdgeIndexInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var edge) ||
+            edge is < 0 or > 2 || !TryNumber(BevelAmountInput.Text, out var amount) || amount is < 0.05 or > 0.45)
+        {
+            MessageBox.Show("Choose a valid triangle, edge 0–2 and bevel fraction 0.05–0.45.", "Bevel edge");
+            return;
+        }
+        var source = item.Mesh.TriangleIndices;
+        if (triangle < 0 || triangle >= source.Count / 3)
+        {
+            MessageBox.Show("Triangle index is outside the mesh.", "Bevel edge");
+            return;
+        }
+        var offset = triangle * 3;
+        var vertices = new[] { source[offset], source[offset + 1], source[offset + 2] };
+        var aIndex = vertices[edge];
+        var bIndex = vertices[(edge + 1) % 3];
+        var cIndex = vertices[(edge + 2) % 3];
+        var positions = new Point3DCollection(item.Mesh.Positions);
+        var a = positions[aIndex]; var b = positions[bIndex]; var c = positions[cIndex];
+        var aBevel = positions.Count; positions.Add(new Point3D(a.X + (c.X - a.X) * amount, a.Y + (c.Y - a.Y) * amount, a.Z + (c.Z - a.Z) * amount));
+        var bBevel = positions.Count; positions.Add(new Point3D(b.X + (c.X - b.X) * amount, b.Y + (c.Y - b.Y) * amount, b.Z + (c.Z - b.Z) * amount));
+        var result = new Int32Collection();
+        for (var i = 0; i + 2 < source.Count; i += 3)
+        {
+            if (i != offset) { result.Add(source[i]); result.Add(source[i + 1]); result.Add(source[i + 2]); continue; }
+            result.Add(aIndex); result.Add(bIndex); result.Add(bBevel);
+            result.Add(aIndex); result.Add(bBevel); result.Add(aBevel);
+            result.Add(aBevel); result.Add(bBevel); result.Add(cIndex);
+        }
+        item.Mesh = new MeshGeometry3D
+        {
+            Positions = positions,
+            TriangleIndices = result,
+            TextureCoordinates = new PointCollection(item.Mesh.TextureCoordinates)
+        };
+        item.Model.Geometry = item.Mesh;
+        RefreshVertexRows(item);
+        StatusText.Text = "Beveled triangle " + triangle + " edge " + edge + " (isolated face operation)";
+    }
+
+    private void PlanarUvUnwrap_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
+        if (item is null) return;
+        if (item.Mesh.Positions.Count == 0) return;
+        var minX = item.Mesh.Positions.Min(p => p.X); var maxX = item.Mesh.Positions.Max(p => p.X);
+        var minZ = item.Mesh.Positions.Min(p => p.Z); var maxZ = item.Mesh.Positions.Max(p => p.Z);
+        var sizeX = Math.Max(0.000001, maxX - minX);
+        var sizeZ = Math.Max(0.000001, maxZ - minZ);
+        var coordinates = new PointCollection();
+        foreach (var p in item.Mesh.Positions)
+            coordinates.Add(new Point((p.X - minX) / sizeX, (p.Z - minZ) / sizeZ));
+        item.Mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection(item.Mesh.Positions),
+            TriangleIndices = new Int32Collection(item.Mesh.TriangleIndices),
+            TextureCoordinates = coordinates
+        };
+        item.Model.Geometry = item.Mesh;
+        StatusText.Text = "Generated a planar X/Z UV map for " + item.Name;
     }
 
     private void ExtrudeFace_Click(object sender, RoutedEventArgs e)
