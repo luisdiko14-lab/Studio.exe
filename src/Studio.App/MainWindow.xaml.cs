@@ -1258,12 +1258,14 @@ public partial class MainWindow : Window
     private void Export3D_Click(object sender, RoutedEventArgs e)
     {
         if (_scene.Count == 0) { MessageBox.Show("Add an object to the scene before exporting."); return; }
-        var dialog = new SaveFileDialog { Filter = "Wavefront OBJ (*.obj)|*.obj|ASCII STL (*.stl)|*.stl", FileName = "scene.obj" };
+        var dialog = new SaveFileDialog { Filter = "Wavefront OBJ (*.obj)|*.obj|ASCII STL (*.stl)|*.stl|glTF binary (*.glb)|*.glb", FileName = "scene.glb" };
         if (dialog.ShowDialog() != true) return;
-        var content = Path.GetExtension(dialog.FileName).Equals(".stl", StringComparison.OrdinalIgnoreCase) ? ExportStl() : ExportObj();
-        File.WriteAllText(dialog.FileName, content, new UTF8Encoding(false));
-        StatusText.Text = $"Exported {Path.GetFileName(dialog.FileName)}";
+        var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
+        if (extension == ".glb") File.WriteAllBytes(dialog.FileName, ExportGlb());
+        else File.WriteAllText(dialog.FileName, extension == ".stl" ? ExportStl() : ExportObj(), new UTF8Encoding(false));
+        StatusText.Text = "Exported " + Path.GetFileName(dialog.FileName);
     }
+    
     private string ExportObj()
     {
         var sb = new StringBuilder("# Studio.exe OBJ export\n"); var offset = 1;
