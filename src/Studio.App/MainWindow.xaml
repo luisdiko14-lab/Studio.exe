@@ -202,6 +202,16 @@
                   <TextBlock Text="Edge: 0 = AB, 1 = BC, 2 = CA" Foreground="#9AA5B5" Margin="3,6,3,0" TextWrapping="Wrap"/>
                   <TextBox x:Name="SplitEdgeIndexInput" Text="0"/>
                   <Button Content="Split connected edge" Click="SplitEdge_Click" Margin="3,4,3,3"/>
+                  <TextBlock Text="Bevel fraction (0.05–0.45)" Foreground="#9AA5B5" Margin="3,6,3,0"/>
+                  <TextBox x:Name="BevelAmountInput" Text="0.15"/>
+                  <Button Content="Bevel triangle edge" Click="BevelTriangleEdge_Click" Margin="3,4,3,3"/>
+                  <TextBlock Text="UV / SCULPT" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,10,3,3"/>
+                  <Button Content="Planar UV unwrap" Click="PlanarUvUnwrap_Click" Margin="3,3,3,3"/>
+                  <CheckBox x:Name="SculptModeCheckBox" Content="Sculpt mode · click surface" Foreground="#C7D1E0" Margin="3,6,3,3"/>
+                  <TextBlock Text="Brush radius" Foreground="#9AA5B5" Margin="3,4,3,0"/>
+                  <TextBox x:Name="SculptRadiusInput" Text="0.75"/>
+                  <TextBlock Text="Brush strength" Foreground="#9AA5B5" Margin="3,4,3,0"/>
+                  <TextBox x:Name="SculptStrengthInput" Text="0.08"/>
                   <TextBlock Text="EXTRUDE FACE" Foreground="#AAB8FF" FontWeight="Bold" Margin="3,10,3,3"/>
                   <TextBlock Text="Triangle index (0-based)" Foreground="#9AA5B5" Margin="3,2,3,0"/>
                   <TextBox x:Name="ExtrudeTriangleIndex" Text="0"/>
