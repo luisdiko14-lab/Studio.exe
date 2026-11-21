@@ -158,6 +158,10 @@
               <Border Grid.Column="0" Background="#20242E" CornerRadius="9" Padding="10" Margin="0,0,8,0">
                 <StackPanel>
                   <TextBlock Text="CREATE" FontWeight="Bold" Foreground="#AAB8FF" Margin="3,4,3,10"/>
+                  <TextBlock Text="Selection mode" Foreground="#9AA5B5" Margin="3,0,3,3"/>
+                  <ComboBox x:Name="SelectionModePicker" SelectedIndex="0" Margin="3,0,3,8">
+                    <ComboBoxItem Content="Object"/><ComboBoxItem Content="Vertex"/><ComboBoxItem Content="Edge"/><ComboBoxItem Content="Face"/>
+                  </ComboBox>
                   <ComboBox x:Name="ShapePicker" SelectedIndex="0"><ComboBoxItem Content="Cube"/><ComboBoxItem Content="Sphere"/><ComboBoxItem Content="Cylinder"/><ComboBoxItem Content="Cone"/><ComboBoxItem Content="Plane"/><ComboBoxItem Content="Torus"/></ComboBox>
                   <Button Content="+ Add object" Click="AddPrimitive_Click"/>
                   <Button Content="Duplicate selected" Click="DuplicateObject_Click"/>
