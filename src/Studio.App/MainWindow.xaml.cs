@@ -30,8 +30,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private StdioProtocolProcess? _languageServer, _debugAdapter;
     private string? _languageServerId, _documentUri;
-    private int _documentVersion;
-    private bool _isUpdatingTimeline;
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
     private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;
@@ -592,7 +590,7 @@ public partial class MainWindow : Window
                 Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
             var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             MonacoEditor.CoreWebView2.NavigationCompleted += (_, args) => navigation.TrySetResult(args.IsSuccess);
-            MonacoEditor.Navigate("https://studio.local/monaco.html");
+            MonacoEditor.Source = new Uri("https://studio.local/monaco.html", UriKind.Absolute);
             if (!await navigation.Task.WaitAsync(TimeSpan.FromSeconds(30))) throw new InvalidOperationException("Monaco page failed to load.");
             await editorReady.Task.WaitAsync(TimeSpan.FromSeconds(60));
             _monacoReady = true;
@@ -1146,7 +1144,7 @@ public partial class MainWindow : Window
 
     private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_isUpdatingTimeline || SceneList is null) return;
+        if (SceneList is null) return;
         TimelineTimeText.Text = TimelineSlider.Value.ToString("0.00", CultureInfo.InvariantCulture) + " s";
         var item = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
         if (item is not null) ApplyAnimationAtTime(item, TimelineSlider.Value);
