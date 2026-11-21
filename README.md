@@ -35,7 +35,7 @@ Studio.exe is a Windows desktop development environment built with C# and WPF on
 - Cube, sphere, cylinder, cone, plane and torus primitives.
 - XYZ position, scale and rotation controls; diffuse/specular material properties, opacity and per-object colors.
 - Editable vertex coordinate grid, triangle subdivision, triangle face extrusion, Laplacian smoothing and face-normal flipping.
-- Import Wavefront OBJ and ASCII/binary STL. Export OBJ, ASCII STL and binary glTF (GLB).
+- Import Wavefront OBJ, ASCII/binary STL and embedded-geometry binary glTF (GLB). Export OBJ, ASCII STL and binary glTF (GLB). GLB import currently loads mesh geometry; node hierarchies, external buffers and texture/material graphs are not reconstructed.
 - Keyframe animation for object transforms, playback timeline and versioned JSON scene save/load that preserves geometry, material settings and keyframes.
 
 ## Requirements
@@ -93,9 +93,9 @@ The release contains `Studio.exe`, `Studio-win-x64.zip` and `SHA256SUMS.txt`.
 
 Studio now has real LSP/DAP protocol bridges and a useful primitive/custom-mesh editor, but it is not a full Visual Studio or Blender clone yet:
 
-- The DAP UI supports common breakpoint/stepping/stack/variable flows; advanced features such as conditional/log breakpoints, expression watch editing, memory/disassembly and multi-process attach are not implemented. Adapter installation and runtime debug sessions require external runtimes and have not been exercised by the GitHub compile/publish job.
+- The DAP UI supports common breakpoint/stepping/stack/variable flows; advanced features such as conditional/log breakpoints, expression watch editing, memory/disassembly and multi-process attach are not implemented. Adapter installation and runtime debug sessions require external runtimes; GitHub Actions validates compilation and packaging, not end-to-end interactive debugging.
 - C# debugging depends on compatible netcoredbg support for the selected target framework/runtime.
-- The 3D editor does not yet include viewport vertex/edge/face selection, bevel/inset/loop-cut tools, sculpt brushes, UV unwrapping, shader-node graphs, rigging, advanced animation curves or GLB import. Its face extrusion currently works on a triangle index selected numerically.
+- The 3D editor does not yet include full viewport vertex/edge/face component selection, connected multi-face bevel/loop-cut operations, sculpting with dynamic topology, seam-aware UV unwrapping, shader-node graphs, rigging, advanced animation curves or texture/material import. Face bevel and extrusion operate on a numerically selected triangle; the sculpt brush affects vertices near the clicked surface.
 - There is no plugin marketplace, Git GUI, global workspace search, project-template wizard or multi-document tab restoration yet.
 - The ConPTY terminal is hosted in a native HWND surface and therefore has WPF airspace limitations.
 
