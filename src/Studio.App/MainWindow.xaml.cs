@@ -1788,7 +1788,7 @@ public partial class MainWindow : Window
 
     private void About_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show($"{Title}\nWindows development workspace for JavaScript, Python, C#, a real shell session, and a lightweight 3D scene editor.\n\nIncludes Monaco, contextual Python/C# IntelliSense, ConPTY, terminal debugging for Python/Node, and a lightweight 3D scene editor. See README for language-server and advanced modeling limits.",
+        MessageBox.Show($"{Title}\nWindows development workspace for JavaScript, Python, C#, Monaco, LSP/DAP integrations, a native ConPTY terminal, and a mesh-based 3D editor.\n\nIncludes multiple open Monaco documents, language-server features, Python/Node/.NET debug adapters, mesh import/edit/export, materials, and keyframe animation. See README for the remaining advanced IDE/modeling limits.",
             "About Studio.exe", MessageBoxButton.OK, MessageBoxImage.Information);
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
