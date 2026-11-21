@@ -652,7 +652,7 @@ public partial class MainWindow : Window
     }
     private static Material CreateMaterial(string colorHex)
     {
-        var color = (Color)(new ColorConverter().ConvertFromString(colorHex) ?? Colors.SlateGray);
+        var color = (Color)(ColorConverter.ConvertFromString(colorHex) ?? Colors.SlateGray);
         return new DiffuseMaterial(new SolidColorBrush(color));
     }
     private static void UpdateObjectMaterial(SceneObject item)
@@ -703,7 +703,7 @@ public partial class MainWindow : Window
             !TryNumber(ObjectZ.Text, out var z) || !TryNumber(ScaleX.Text, out var sx) ||
             !TryNumber(ScaleY.Text, out var sy) || !TryNumber(ScaleZ.Text, out var sz) ||
             !TryNumber(RotationX.Text, out var rotationX) || !TryNumber(RotationY.Text, out var rotationY) || !TryNumber(RotationZ.Text, out var rotationZ) ||
-            new ColorConverter().ConvertFromString(ObjectColor.Text) is not Color color)
+            ColorConverter.ConvertFromString(ObjectColor.Text) is not Color color)
         {
             MessageBox.Show("Enter valid numeric transform values.", "Invalid transform"); return;
         }
