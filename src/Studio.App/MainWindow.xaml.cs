@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private readonly List<SceneObject> _scene = [];
     private AppSettings _settings;
     private string? _projectRoot, _currentDirectory, _currentFile;
-    private bool _isLoadingEditor, _isDirty, _terminalVisible = true;
+    private bool _isLoadingEditor, _isDirty, _terminalVisible = true, _monacoReady;\n    private string _monacoText = string.Empty;
     private Process? _runProcess;
     private Model3DGroup _world = new();
 
@@ -215,7 +215,9 @@ public partial class MainWindow : Window
         try
         {
             _isLoadingEditor = true; EditorText.Text = File.ReadAllText(path);
-            _currentFile = path; _isDirty = false; CurrentFileText.Text = Path.GetFileName(path);
+            _monacoText = EditorText.Text;
+            _currentFile = path;
+            _ = SetMonacoTextAsync(_monacoText, path); _isDirty = false; CurrentFileText.Text = Path.GetFileName(path);
             StatusText.Text = $"Opened {Path.GetFileName(path)}"; WorkspaceTabs.SelectedItem = EditorTab;
         }
         catch (Exception ex) { MessageBox.Show($"Could not open file:\n{ex.Message}", "Open file failed"); }
@@ -242,7 +244,7 @@ public partial class MainWindow : Window
         if (_currentFile is null) { SaveAs_Click(this, new RoutedEventArgs()); return !_isDirty; }
         try
         {
-            File.WriteAllText(_currentFile, EditorText.Text, new UTF8Encoding(false));
+            var content = WorkspaceTabs.SelectedItem == MonacoTab ? _monacoText : EditorText.Text;\n            File.WriteAllText(_currentFile, content, new UTF8Encoding(false));
             _isDirty = false; CurrentFileText.Text = Path.GetFileName(_currentFile);
             StatusText.Text = "File saved"; RefreshExplorer(); return true;
         }
@@ -375,9 +377,48 @@ public partial class MainWindow : Window
         catch (Exception ex) { AppendTerminal($"Stop failed: {ex.Message}"); }
     }
 
+    private async Task InitializeMonacoAsync()
+    {
+        try
+        {
+            await MonacoEditor.EnsureCoreWebView2Async();
+            MonacoEditor.CoreWebView2.WebMessageReceived += (_, e) =>
+            {
+                try { var message = JsonDocument.Parse(e.WebMessageAsJson).RootElement; if (message.TryGetProperty("text", out var value)) _monacoText = value.GetString() ?? string.Empty; } catch { }
+            };
+            var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "monaco.html");
+            if (!File.Exists(htmlPath)) throw new FileNotFoundException("Monaco web assets were not published.", htmlPath);
+            MonacoEditor.NavigateToString(File.ReadAllText(htmlPath));
+            _monacoReady = true;
+        }
+        catch (Exception ex) { StatusText.Text = "Monaco initialization failed: " + ex.Message; }
+    }
+
+    private async Task SetMonacoTextAsync(string text, string? path)
+    {
+        if (!_monacoReady) return;
+        var language = Path.GetExtension(path ?? "").ToLowerInvariant() switch { ".js" or ".mjs" or ".cjs" => "javascript", ".py" => "python", ".cs" => "csharp", ".json" => "json", ".xml" or ".xaml" => "xml", _ => "plaintext" };
+        await MonacoEditor.ExecuteScriptAsync("window.studioSetValue(" + JsonSerializer.Serialize(text) + "," + JsonSerializer.Serialize(language) + ");");
+    }
+
+    private async void OpenMonaco_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_monacoReady) { MessageBox.Show("Monaco is still initializing. It also requires internet access to load its editor engine.", "Monaco Editor"); return; }
+        _monacoText = EditorText.Text;
+        await SetMonacoTextAsync(_monacoText, _currentFile);
+        WorkspaceTabs.SelectedItem = MonacoTab;
+    }
+
+    private void NativePowerShell_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "pwsh.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
+
     private void ShowEditor_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = EditorTab;
     private void Show3D_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ModelerTab;
     private void ShowExtensions_Click(object sender, RoutedEventArgs e) => WorkspaceTabs.SelectedItem = ExtensionsTab;
+    private void NativePowerShell_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "pwsh.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeCommandPrompt_Click(object sender, RoutedEventArgs e) { ConPtyTerminal.StartupCommandLine = "cmd.exe"; ConPtyTerminal.RestartTerm(); }
+    private void NativeRestart_Click(object sender, RoutedEventArgs e) => ConPtyTerminal.RestartTerm();
     private void RefreshExtensionStatus()
     {
         JsStatus.Text = _settings.JavaScriptEnabled ? "Enabled" : "Disabled";
@@ -406,12 +447,32 @@ public partial class MainWindow : Window
     private void AddSceneObject(string shape)
     {
         var number = _scene.Count + 1;
-        var mesh = shape.Equals("Sphere", StringComparison.OrdinalIgnoreCase) ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+        var mesh = CreatePrimitiveMesh(shape);
         var material = new DiffuseMaterial(new SolidColorBrush(_scene.Count % 2 == 0 ? Color.FromRgb(113, 142, 255) : Color.FromRgb(71, 184, 173)));
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var item = new SceneObject { Name = $"{shape} {number}", Shape = shape, Mesh = mesh, Model = model };
         UpdateObjectTransform(item); _scene.Add(item); _world.Children.Add(model);
         RefreshSceneList(item.Name); StatusText.Text = $"{item.Name} added to the 3D scene";
+    }
+    private static MeshGeometry3D CreatePrimitiveMesh(string shape)
+    {
+        if (shape == "Sphere") return CreateSphereMesh(0.75, 24, 32);
+        if (shape == "Plane") return new MeshGeometry3D { Positions = new Point3DCollection { new(-1,0,-1), new(1,0,-1), new(1,0,1), new(-1,0,1) }, TriangleIndices = new Int32Collection { 0,1,2,0,2,3 } };
+        if (shape == "Cylinder" || shape == "Cone")
+        {
+            const int n = 32; var p = new Point3DCollection(); var t = new Int32Collection();
+            for (var i=0;i<n;i++) { var a=2*Math.PI*i/n; p.Add(new Point3D(Math.Cos(a)*0.7,-0.8,Math.Sin(a)*0.7)); p.Add(new Point3D(shape=="Cone"?0:Math.Cos(a)*0.7,0.8,shape=="Cone"?0:Math.Sin(a)*0.7)); }
+            for (var i=0;i<n;i++) { var j=(i+1)%n; t.Add(2*i);t.Add(2*j);t.Add(2*i+1); if(shape=="Cylinder"){t.Add(2*j);t.Add(2*j+1);t.Add(2*i+1);} }
+            return new MeshGeometry3D { Positions=p, TriangleIndices=t };
+        }
+        if (shape == "Torus")
+        {
+            const int major=40, minor=16; var p=new Point3DCollection(); var t=new Int32Collection();
+            for(var i=0;i<=major;i++){var u=2*Math.PI*i/major;for(var j=0;j<=minor;j++){var v=2*Math.PI*j/minor;var r=0.55+0.2*Math.Cos(v);p.Add(new Point3D(r*Math.Cos(u),0.2*Math.Sin(v),r*Math.Sin(u)));}}
+            for(var i=0;i<major;i++)for(var j=0;j<minor;j++){var a=i*(minor+1)+j;var b=a+minor+1;t.Add(a);t.Add(b);t.Add(a+1);t.Add(a+1);t.Add(b);t.Add(b+1);}
+            return new MeshGeometry3D { Positions=p, TriangleIndices=t };
+        }
+        return CreateCubeMesh(1.0);
     }
     private static MeshGeometry3D CreateCubeMesh(double size)
     {
@@ -500,7 +561,7 @@ public partial class MainWindow : Window
     {
         var source = _scene.FirstOrDefault(x => x.Name == SceneList.SelectedItem as string);
         if (source is null) return;
-        var mesh = source.Shape == "Sphere" ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+        var mesh = CreatePrimitiveMesh(source.Shape);
         var material = new DiffuseMaterial(new SolidColorBrush(Color.FromRgb(167, 131, 255)));
         var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var copy = new SceneObject
@@ -544,7 +605,7 @@ public partial class MainWindow : Window
             _scene.Clear(); _sceneNames.Clear();
             foreach (var saved in doc.Objects)
             {
-                var mesh = saved.Shape == "Sphere" ? CreateSphereMesh(0.75, 18, 24) : CreateCubeMesh(1.0);
+                var mesh = CreatePrimitiveMesh(saved.Shape);
                 var material = new DiffuseMaterial(new SolidColorBrush(Color.FromRgb(113, 142, 255)));
                 var model = new GeometryModel3D(mesh, material) { BackMaterial = material };
                 var item = new SceneObject
