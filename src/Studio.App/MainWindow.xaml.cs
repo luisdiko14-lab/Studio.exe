@@ -85,7 +85,8 @@ public partial class MainWindow : Window
             "#35B6A2" => Color.FromRgb(53, 182, 162),
             _ => Color.FromRgb(115, 135, 255)
         };
-        if (Application.Current.Resources["AccentBrush"] is SolidColorBrush brush) brush.Color = accent;
+        // XAML resource brushes may be frozen by WPF; replace the resource instead of mutating it.
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush(accent);
         if (_settings.Theme.Equals("Light", StringComparison.OrdinalIgnoreCase))
         {
             Application.Current.Resources["WindowBrush"] = new SolidColorBrush(Color.FromRgb(242, 245, 250));
