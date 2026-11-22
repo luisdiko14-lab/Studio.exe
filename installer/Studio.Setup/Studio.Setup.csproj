@@ -13,4 +13,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../Install-DeveloperTools.ps1"
+                      Link="Install-DeveloperTools.ps1"
+                      LogicalName="StudioSetup.Install-DeveloperTools.ps1" />
+  </ItemGroup>
 </Project>
