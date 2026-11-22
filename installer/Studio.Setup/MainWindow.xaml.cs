@@ -214,6 +214,13 @@ public partial class MainWindow : Window
         if (process.ExitCode != 0)
             throw new InvalidOperationException(
                 $"The developer-tool installer exited with code {process.ExitCode}.");
+
+        string? machinePath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine);
+        if (!string.IsNullOrWhiteSpace(machinePath))
+            Environment.SetEnvironmentVariable("Path", machinePath, EnvironmentVariableTarget.Process);
+        string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT", EnvironmentVariableTarget.Machine);
+        if (!string.IsNullOrWhiteSpace(dotnetRoot))
+            Environment.SetEnvironmentVariable("DOTNET_ROOT", dotnetRoot, EnvironmentVariableTarget.Process);
     }
 
     private async Task<(string Url, string ChecksumUrl, string PackageName, string Name)> FindLatestPackageAsync()
