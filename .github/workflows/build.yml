@@ -46,15 +46,45 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/Studio.App/Studio.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output artifacts/Studio
-          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { throw "Studio.exe publish failed with exit code $LASTEXITCODE" }
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Studio.exe was not produced" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco editor assets were not published" }
 
-      - name: Upload Windows build
+      - name: Package portable ZIP
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "artifacts/Studio/*" -DestinationPath "artifacts/Studio-win-x64.zip" -CompressionLevel Optimal -Force
+
+      - name: Publish GUI setup.exe
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          dotnet publish installer/Studio.Setup/Studio.Setup.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded --output artifacts/Setup
+          if ($LASTEXITCODE -ne 0) { throw "GUI setup.exe publish failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "artifacts/Setup/StudioSetup.exe")) { throw "StudioSetup.exe was not produced" }
+          Copy-Item "artifacts/Setup/StudioSetup.exe" "artifacts/setup.exe" -Force
+
+      - name: Build setup.msi
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $publishDir = Join-Path $env:GITHUB_WORKSPACE "artifacts\Studio"
+          dotnet build installer/Studio.Setup.Msi/Studio.Setup.Msi.wixproj --configuration Release "-p:PublishDir=$publishDir" "-p:ProductVersion=1.0.0"
+          if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed with exit code $LASTEXITCODE" }
+          $msi = Get-ChildItem "installer/Studio.Setup.Msi/bin" -Filter "Studio.Setup.msi" -File -Recurse | Select-Object -First 1
+          if (-not $msi) { throw "WiX build completed without Studio.Setup.msi" }
+          Copy-Item $msi.FullName "artifacts/setup.msi" -Force
+
+      - name: Upload Windows build and installers
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: Studio.exe-win-x64
-          path: artifacts/Studio/
+          name: Studio.exe-Windows-x64
+          path: |
+            artifacts/Studio/
+            artifacts/Studio-win-x64.zip
+            artifacts/setup.exe
+            artifacts/setup.msi
           if-no-files-found: error
           retention-days: 14
