@@ -35,7 +35,7 @@
           <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
           <RegistryValue
               Root="HKLM"
-              Key="Software\AudioQuack\Studio.exe"
+              Key="Software\LuisAppsInc\Studio.exe"
               Name="StartMenuShortcut"
               Type="integer"
               Value="1"
