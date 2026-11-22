@@ -20,9 +20,7 @@
     </Feature>
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Studio.exe">
-        <Files Include="$(var.PublishDir)\**" />
-      </Directory>
+      <Directory Id="INSTALLFOLDER" Name="Studio.exe" />
     </StandardDirectory>
 
     <StandardDirectory Id="CommonProgramsFolder">
@@ -46,4 +44,10 @@
       </Directory>
     </StandardDirectory>
   </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+  </Fragment>
 </Wix>
