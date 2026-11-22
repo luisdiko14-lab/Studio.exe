@@ -65,7 +65,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: pwsh
         run: |
-          dotnet publish src/Studio.CrashHandler/Studio.CrashHandler.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true --output artifacts/CrashHandler
+          dotnet publish src/Studio.CrashHandler/Studio.CrashHandler.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output artifacts/CrashHandler
           if ($LASTEXITCODE -ne 0) { throw "Studio Crash Handler publish failed with exit code $LASTEXITCODE" }
           foreach ($file in @("Studio.CrashHandler.exe", "Studio.CrashHandler.Core.dll", "Studio.CrashHandler.Diagnostics.dll")) {
             $source = Join-Path "artifacts/CrashHandler" $file
