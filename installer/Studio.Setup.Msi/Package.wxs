@@ -23,7 +23,7 @@
       <Directory Id="INSTALLFOLDER" Name="Studio.exe" />
     </StandardDirectory>
 
-    <StandardDirectory Id="CommonProgramsFolder">
+    <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="Studio.exe">
         <Component Id="StartMenuShortcut" Guid="*">
           <Shortcut
