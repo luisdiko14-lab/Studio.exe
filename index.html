@@ -105,6 +105,60 @@
     .download-dialog-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:19px;font-size:.8rem;color:#91a2bc}
     .download-dialog-foot a{color:#a9c6ff;text-decoration:underline;text-underline-offset:3px}
     .download-close{border:1px solid var(--line);background:#ffffff08;color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer;font:inherit}
+
+    /* Motion polish */
+    body::before{content:"";position:fixed;inset:-25%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 18% 18%,#6c8fff16,transparent 28%),radial-gradient(ellipse at 78% 38%,#66dedb12,transparent 30%),radial-gradient(ellipse at 55% 85%,#9d79f512,transparent 27%);filter:blur(24px);animation:ambient-drift 22s ease-in-out infinite alternate}
+    body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.12;background-image:linear-gradient(#8eafff10 1px,transparent 1px),linear-gradient(90deg,#8eafff10 1px,transparent 1px);background-size:58px 58px;mask-image:linear-gradient(to bottom,black,transparent 78%)}
+    @keyframes ambient-drift{0%{transform:translate3d(-2%,0,0) scale(1)}100%{transform:translate3d(2%,3%,0) scale(1.08)}}
+    .nav-wrap{transition:background .25s,border-color .25s}
+    .nav-links a:not(.nav-cta){position:relative}
+    .nav-links a:not(.nav-cta)::after{content:"";position:absolute;left:0;right:100%;bottom:-7px;height:1px;background:var(--cyan);transition:right .22s}
+    .nav-links a:not(.nav-cta):hover::after{right:0}
+    .brand-mark{animation:brand-breathe 4s ease-in-out infinite;transition:transform .25s}
+    .brand:hover .brand-mark{transform:rotate(-9deg) scale(1.08)}
+    @keyframes brand-breathe{0%,100%{box-shadow:0 6px 24px #718ff044}50%{box-shadow:0 6px 32px #718ff088,0 0 0 5px #8aaaff0b}}
+    .eyebrow{animation:eyebrow-in .8s both}
+    @keyframes eyebrow-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    h1{animation:hero-title-in .85s .08s both}
+    .hero-copy{animation:hero-title-in .8s .18s both}
+    .hero-actions{animation:hero-title-in .8s .28s both}
+    .hero-note{animation:hero-title-in .8s .38s both}
+    @keyframes hero-title-in{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+    .gradient{background-size:180% 100%;animation:gradient-flow 8s ease-in-out infinite alternate}
+    @keyframes gradient-flow{from{background-position:0% 50%}to{background-position:100% 50%}}
+    .window{transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .45s;transform:perspective(1200px) rotateY(calc(-5deg + var(--tilt-x,0deg))) rotateX(calc(2deg + var(--tilt-y,0deg))) translateY(var(--float-y,0px));animation:window-float 7s ease-in-out infinite}
+    .window:hover{box-shadow:0 38px 100px #000b,0 0 0 7px #ffffff07}
+    @keyframes window-float{0%,100%{--float-y:0px}50%{--float-y:-9px}}
+    .float-chip{animation:chip-float 5s ease-in-out infinite;transition:transform .25s}
+    @keyframes chip-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .dot{animation:dot-pulse 2.2s ease-in-out infinite}
+    @keyframes dot-pulse{0%,100%{box-shadow:0 0 0 0 #80e2b000}50%{box-shadow:0 0 0 7px #80e2b018}}
+    .feature,.doc,.requirement{transition:transform .28s ease,border-color .28s ease,background .28s ease,box-shadow .28s ease}
+    .feature:hover,.doc:hover{transform:translateY(-6px);border-color:#8daeff55;box-shadow:0 18px 42px #0003;background:linear-gradient(145deg,#19263abb,#101a29)}
+    .feature-icon{transition:transform .3s,background .3s}
+    .feature:hover .feature-icon{transform:translateY(-3px) rotate(-5deg) scale(1.08);background:#8baaff27}
+    .requirement:hover{transform:translateY(-3px);border-color:#8daeff44}
+    .download-card{position:relative;overflow:hidden}
+    .download-card::before{content:"";position:absolute;inset:-1px;pointer-events:none;background:linear-gradient(110deg,transparent 25%,#ffffff08 48%,transparent 68%);transform:translateX(-110%);animation:card-sheen 9s ease-in-out infinite}
+    @keyframes card-sheen{0%,65%{transform:translateX(-110%)}90%,100%{transform:translateX(110%)}}
+    .download-option .file-icon{transition:transform .25s,background .25s}
+    .download-option:hover .file-icon{transform:scale(1.08) rotate(-4deg);background:#8caeff2b}
+    .arrow{transition:transform .2s}
+    .download-option:hover .arrow{transform:translate(3px,-3px)}
+    .section-head .kicker{display:inline-block;animation:kicker-glow 4s ease-in-out infinite}
+    @keyframes kicker-glow{0%,100%{text-shadow:0 0 0 transparent}50%{text-shadow:0 0 18px #69e0dc66}}
+    body.js-motion .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+    body.js-motion .reveal.is-visible{opacity:1;transform:translateY(0)}
+    body.js-motion .feature-grid .feature.reveal:nth-child(2),body.js-motion .docs-grid .doc.reveal:nth-child(2){transition-delay:.08s}
+    body.js-motion .feature-grid .feature.reveal:nth-child(3),body.js-motion .docs-grid .doc.reveal:nth-child(3){transition-delay:.16s}
+    body.js-motion .feature-grid .feature.reveal:nth-child(4),body.js-motion .docs-grid .doc.reveal:nth-child(4){transition-delay:.08s}
+    body.js-motion .feature-grid .feature.reveal:nth-child(5),body.js-motion .docs-grid .doc.reveal:nth-child(5){transition-delay:.16s}
+    body.js-motion .feature-grid .feature.reveal:nth-child(6){transition-delay:.24s}
+    .scroll-progress{position:fixed;left:0;top:0;z-index:60;width:100%;height:2px;pointer-events:none;background:#ffffff08}
+    .scroll-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,#83aaff,#a18bff,#69e0dc);box-shadow:0 0 12px #79a8ff88;transition:width .08s linear}
+    @media(max-width:900px){.window{transform:none;animation:window-float 7s ease-in-out infinite}}
+    @media(prefers-reduced-motion:reduce){body::before,.brand-mark,.eyebrow,h1,.hero-copy,.hero-actions,.hero-note,.gradient,.window,.float-chip,.dot,.download-card::before,.section-head .kicker{animation:none!important}body.js-motion .reveal{opacity:1;transform:none;transition:none}.scroll-progress span{transition:none}}
+
     @media(prefers-reduced-motion:reduce){.download-spinner,.download-track span{animation:none}}
     @media(max-width:900px){.hero{grid-template-columns:1fr;gap:46px;padding-top:70px;min-height:0}.hero-copy{max-width:700px}.visual{max-width:650px;margin:auto;width:100%}.window{transform:none}.download-layout{grid-template-columns:1fr}.feature-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.wrap{width:min(100% - 28px,var(--max))}nav{height:64px}.nav-links{gap:14px}.nav-links a:not(.nav-cta){display:none}.nav-cta{padding:9px 12px;font-size:.82rem}.hero{padding:58px 0 55px}h1{font-size:clamp(3rem,15vw,4.5rem)}.hero-copy{font-size:1rem}.hero-actions .button{width:100%}.editor{min-height:240px;font-size:10px}.float-chip{right:7px;bottom:12px}.section{padding:68px 0}.feature-grid,.docs-grid,.requirements{grid-template-columns:1fr}.feature{min-height:0}.download-card{padding:24px 17px}.trust-inner{gap:14px 22px}.footer-inner{flex-direction:column}}
@@ -112,6 +166,7 @@
   </style>
 </head>
 <body>
+  <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress-bar"></span></div>
   <div class="nav-wrap">
     <nav class="wrap" aria-label="Main navigation">
       <a class="brand" href="#" aria-label="Studio.exe home"><span class="brand-mark">S.</span><span>Studio.exe</span></a>
@@ -260,6 +315,54 @@ app.<span class="fn">run</span>();</div>
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') overlay.classList.remove('open');
     });
+
+    // Reveal content as it enters the viewport; keep the page visible without JS.
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!motionQuery.matches && 'IntersectionObserver' in window) {
+      document.body.classList.add('js-motion');
+      const revealTargets = document.querySelectorAll('.section-head, .feature, .download-card, .doc, .requirement, .trust-row');
+      revealTargets.forEach(element => element.classList.add('reveal'));
+      const revealObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -35px 0px' });
+      revealTargets.forEach(element => revealObserver.observe(element));
+    }
+
+    // Lightweight scroll progress indicator.
+    const progressBar = document.getElementById('scroll-progress-bar');
+    let scrollTicking = false;
+    window.addEventListener('scroll', () => {
+      if (scrollTicking) return;
+      scrollTicking = true;
+      window.requestAnimationFrame(() => {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+        progressBar.style.width = Math.min(100, Math.max(0, progress)) + '%';
+        scrollTicking = false;
+      });
+    }, { passive: true });
+
+    // Subtle pointer tilt on the editor preview (desktop only).
+    const preview = document.querySelector('.window');
+    if (preview && window.matchMedia('(hover:hover) and (pointer:fine)').matches && !motionQuery.matches) {
+      const visual = preview.closest('.visual');
+      visual.addEventListener('pointermove', event => {
+        const bounds = visual.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+        const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+        preview.style.setProperty('--tilt-x', (x * 4).toFixed(2) + 'deg');
+        preview.style.setProperty('--tilt-y', (-y * 3).toFixed(2) + 'deg');
+      });
+      visual.addEventListener('pointerleave', () => {
+        preview.style.setProperty('--tilt-x', '0deg');
+        preview.style.setProperty('--tilt-y', '0deg');
+      });
+    }
 
   </script>
 </body>
