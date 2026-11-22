@@ -50,6 +50,13 @@ jobs:
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Studio.exe was not produced" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco editor assets were not published" }
 
+      - name: Include optional developer-tool installer in the MSI payload
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          Copy-Item "installer/Install-DeveloperTools.ps1" "artifacts/Studio/Install-DeveloperTools.ps1" -Force
+          if (-not (Test-Path "artifacts/Studio/Install-DeveloperTools.ps1")) { throw "Optional developer-tool installer script was not copied into the payload." }
+
       - name: Smoke-test Studio.exe startup
         if: github.event_name != 'pull_request'
         shell: pwsh
@@ -107,6 +114,7 @@ jobs:
           $installedExe = Join-Path $installDir "Studio.exe"
           if (-not (Test-Path $installedExe)) { throw "MSI did not install Studio.exe to $installDir" }
           if (-not (Test-Path (Join-Path $installDir "Assets/monaco/vs/loader.js"))) { throw "MSI did not install Monaco assets." }
+          if (-not (Test-Path (Join-Path $installDir "Install-DeveloperTools.ps1"))) { throw "MSI did not install the optional developer-tool installer script." }
           $app = Start-Process -FilePath $installedExe -WorkingDirectory $installDir -PassThru
           Start-Sleep -Seconds 8
           $app.Refresh()
