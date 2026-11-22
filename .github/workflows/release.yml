@@ -108,7 +108,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: Studio.exe \${"{github.ref_name}"}
+          name: Studio.exe ${{ github.ref_name }}
           generate_release_notes: true
           files: |
             artifacts/Studio/Studio.exe
@@ -118,4 +118,4 @@ jobs:
             artifacts/SHA256SUMS.txt
           fail_on_unmatched_files: true
           draft: false
-          prerelease: \${"{contains(github.ref_name, '-')}"}
+          prerelease: ${{ contains(github.ref_name, '-') }}
