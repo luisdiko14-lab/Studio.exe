@@ -50,6 +50,22 @@ jobs:
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Studio.exe was not produced" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco editor assets were not published" }
 
+      - name: Smoke-test Studio.exe startup
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "artifacts/Studio/Studio.exe").Path
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited) {
+            $crashLog = Join-Path $env:LOCALAPPDATA "Luis Apps Inc\Studio.exe\Logs\startup.log"
+            if (Test-Path $crashLog) { Get-Content $crashLog -Tail 100 }
+            throw "Studio.exe exited during its startup smoke test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+          Write-Host "Studio.exe stayed running for 8 seconds."
+
       - name: Package portable ZIP
         if: github.event_name != 'pull_request'
         shell: pwsh
@@ -75,6 +91,34 @@ jobs:
           $msi = Get-ChildItem "installer/Studio.Setup.Msi/bin" -Filter "Studio.Setup.msi" -File -Recurse | Select-Object -First 1
           if (-not $msi) { throw "WiX build completed without Studio.Setup.msi" }
           Copy-Item $msi.FullName "artifacts/setup.msi" -Force
+
+      - name: Install-test MSI and launch installed application
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP "StudioMsiSmoke"
+          $logPath = Join-Path $env:RUNNER_TEMP "StudioMsiInstall.log"
+          $msiPath = (Resolve-Path "artifacts/setup.msi").Path
+          $install = Start-Process -FilePath "msiexec.exe" -ArgumentList @("/i", $msiPath, "/qn", "/norestart", "INSTALLFOLDER=$installDir", "/L*v", $logPath) -Wait -PassThru
+          if ($install.ExitCode -notin @(0, 3010)) {
+            Get-Content $logPath -Tail 100
+            throw "MSI installation failed with exit code $($install.ExitCode)."
+          }
+          $installedExe = Join-Path $installDir "Studio.exe"
+          if (-not (Test-Path $installedExe)) { throw "MSI did not install Studio.exe to $installDir" }
+          if (-not (Test-Path (Join-Path $installDir "Assets\monaco\vs\loader.js"))) { throw "MSI did not install Monaco assets." }
+          $app = Start-Process -FilePath $installedExe -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 8
+          $app.Refresh()
+          if ($app.HasExited) {
+            $crashLog = Join-Path $env:LOCALAPPDATA "Luis Apps Inc\Studio.exe\Logs\startup.log"
+            if (Test-Path $crashLog) { Get-Content $crashLog -Tail 100 }
+            throw "MSI-installed Studio.exe exited during startup with code $($app.ExitCode)."
+          }
+          Stop-Process -Id $app.Id -Force
+          $uninstall = Start-Process -FilePath "msiexec.exe" -ArgumentList @("/x", $msiPath, "/qn", "/norestart") -Wait -PassThru
+          if ($uninstall.ExitCode -notin @(0, 3010)) { throw "MSI uninstall failed with exit code $($uninstall.ExitCode)." }
+          Write-Host "MSI install, application startup, and uninstall tests passed."
 
       - name: Upload Windows build and installers
         if: github.event_name != 'pull_request'
