@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Studio.exe — Download & Documentation</title>
+  <style>
+    /* =====================================================================
+       TOP DOWNLOAD LINKS CONFIGURATION (REPLACE WITH YOUR ACTUAL URLS)
+       ===================================================================== */
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border-color: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --accent-blue: #2f81f7;
+      --accent-blue-hover: #58a6ff;
+      --accent-green: #238636;
+      --accent-green-hover: #2ea043;
+      --code-bg: #161b22;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.65;
+    }
+
+    /* Top Download Banner */
+    .download-bar {
+      background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    .download-bar h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      border: none;
+      padding: 0;
+    }
+
+    .download-bar p {
+      margin: 0 0 1.5rem 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .download-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 210px;
+      padding: 0.85rem 1.4rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-download span.sub {
+      font-size: 0.78rem;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-green);
+      color: #ffffff;
+      border-color: rgba(240, 246, 252, 0.1);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-green-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background-color: #2b313a;
+      border-color: var(--accent-blue);
+    }
+
+    /* Main Documentation Container */
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem 1.5rem;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      margin-top: 0;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h2 {
+      font-size: 1.55rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h3 {
+      font-size: 1.2rem;
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+      color: #f0f6fc;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    ul {
+      padding-left: 1.5rem;
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+    }
+
+    li {
+      margin-bottom: 0.45rem;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.88em;
+      background-color: rgba(110, 118, 129, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 6px;
+    }
+
+    pre {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin-top: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    pre code {
+      background-color: transparent;
+      padding: 0;
+      font-size: 0.9rem;
+      color: #e6edf3;
+    }
+
+    strong {
+      color: #ffffff;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =======================================================================
+       DOWNLOAD LINKS (Replace INPUt_LINK_HERE with your direct file URLs)
+       ======================================================================= -->
+  <header class="download-bar">
+    <h2>Download Studio for Windows (x64)</h2>
+    <p>Choose the standalone executable, Windows Installer package, or portable ZIP archive.</p>
+    <div class="download-buttons">
+      <a href="INPUt_LINK_HERE" class="btn-download btn-primary" download="Studio.exe">
+        Install Studio.exe
+        <span class="sub">Standalone Windows Executable</span>
+      </a>
+      <a href="INPUt_LINK_HERE" class="btn-download btn-secondary" download="Studio.msi">
+        Install Studio.msi
+        <span class="sub">Windows Installer Package</span>
+      </a>
+      <a href="INPUt_LINK_HERE" class="btn-download btn-secondary" download="Studio.zip">
+        Download Studio.zip
+        <span class="sub">Portable Archive (with Assets)</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Studio.exe</h1>
+
+    <p>
+      Studio.exe is a Windows desktop development environment built with C# and WPF on .NET 10. It includes a project workspace, Monaco editor, external language-server and debugger integrations, an interactive Windows ConPTY terminal, and a mesh-based 3D scene editor.
+    </p>
+
+    <h2>Implemented features</h2>
+
+    <h3>Editor and languages</h3>
+    <ul>
+      <li>Monaco 0.52.2 is bundled into the build output under <code>Assets/monaco/vs</code>. The editor runs locally through WebView2 virtual-host mapping; it does not call a CDN when the app starts.</li>
+      <li>JavaScript and TypeScript use Monaco's built-in TypeScript language service.</li>
+      <li>Python uses Pyright over the Language Server Protocol (LSP) after the optional language-tools installer runs.</li>
+      <li>C# uses Microsoft's Roslyn language server over LSP, including project discovery and Roslyn diagnostics, completion, hover, signatures, definitions, symbols and code actions exposed by the server.</li>
+      <li>A local completion/hover fallback remains available when an external language server is not installed.</li>
+      <li>Open/create/save files, project explorer, keyboard shortcuts, build and run commands, and compiler/interpreter diagnostics displayed as Monaco markers.</li>
+    </ul>
+
+    <h3>Debugging</h3>
+    <ul>
+      <li>The Monaco debug panel has gutter breakpoints, Continue, Pause, Step Over, Step In, Step Out, Stop, call stack, variables and a debug console.</li>
+      <li>Python uses the <code>debugpy</code> DAP adapter.</li>
+      <li>JavaScript/Node uses Microsoft's <code>js-debug</code> DAP adapter.</li>
+      <li>.NET projects use Samsung's <code>netcoredbg</code> DAP adapter; Studio builds the selected project in Debug mode and launches its output DLL.</li>
+      <li>The optional adapter installer places adapters in the current Windows user's LocalAppData folder. No administrator rights are required.</li>
+    </ul>
+
+    <h3>Terminal and build</h3>
+    <ul>
+      <li>Native interactive Windows Terminal ConPTY session for PowerShell and CMD.</li>
+      <li>Build and run workflows for JavaScript, Python and .NET projects.</li>
+      <li>Output and errors are streamed to the app terminal. A Check action runs <code>node --check</code>, <code>python -m py_compile</code>, or <code>dotnet build</code>, then maps recognized diagnostics into Monaco markers.</li>
+      <li>GitHub Actions compiles, publishes a self-contained Windows x64 app, and uploads the publish folder as a workflow artifact.</li>
+      <li>A separate release workflow creates a GitHub Release from a pushed <code>v*</code> tag, attaching <code>Studio.exe</code>, a portable ZIP and SHA-256 checksum.</li>
+    </ul>
+
+    <h3>3D workspace</h3>
+    <ul>
+      <li>HelixToolkit viewport with orbit, pan, zoom, grid, coordinate axes and view cube.</li>
+      <li>Cube, sphere, cylinder, cone, plane and torus primitives.</li>
+      <li>XYZ position, scale and rotation controls; diffuse/specular material properties, opacity and per-object colors.</li>
+      <li>Editable vertex coordinate grid, triangle subdivision, triangle face extrusion, Laplacian smoothing and face-normal flipping.</li>
+      <li>Import Wavefront OBJ, ASCII/binary STL and embedded-geometry binary glTF (GLB). Export OBJ, ASCII STL and binary glTF (GLB). GLB import currently loads mesh geometry; node hierarchies, external buffers and texture/material graphs are not reconstructed.</li>
+      <li>Keyframe animation for object transforms, playback timeline and versioned JSON scene save/load that preserves geometry, material settings and keyframes.</li>
+    </ul>
+
+    <h2>Requirements</h2>
+    <ul>
+      <li>Windows 10 or Windows 11.</li>
+      <li>Microsoft Edge WebView2 Runtime (normally present on current Windows installations).</li>
+      <li>.NET 10 SDK for C# build/run and local builds.</li>
+      <li>Node.js 22+ with npm for local build-time Monaco bundling and JavaScript debugging.</li>
+      <li>Python 3 for Python run/debug workflows. The optional installer adds Pyright and debugpy.</li>
+      <li>A network connection is only needed for the first-time optional language-server/debug-adapter installation and for fetching Monaco during local source builds. The published editor itself runs offline.</li>
+    </ul>
+
+    <h2>Build from source</h2>
+    <p>Open PowerShell in the repository directory:</p>
+    <pre><code>Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
+.\build.ps1</code></pre>
+    <p>
+      The build installs pinned Monaco 0.52.2 into the workspace and copies its loader/workers into <code>src/Studio.App/Assets/monaco/vs</code>.
+    </p>
+    <p>Publish a self-contained Windows x64 app:</p>
+    <pre><code>.\build.ps1 -Publish -SelfContained</code></pre>
+    <p>
+      The executable is written to <code>artifacts\Studio\Studio.exe</code>. Keep the published <code>Assets</code> folder alongside the EXE; the portable ZIP includes it.
+    </p>
+
+    <h2>Install language servers and debugger adapters</h2>
+    <p>
+      Open Studio &rarr; Extensions &rarr; <strong>Install / Update Language Servers + Debug Adapters</strong>. The installer adds:
+    </p>
+    <ul>
+      <li>Pyright via npm.</li>
+      <li>Microsoft Roslyn language server as a .NET global tool.</li>
+      <li>Python debugpy via pip.</li>
+      <li>Microsoft's JavaScript DAP adapter.</li>
+      <li>Samsung netcoredbg for .NET DAP debugging.</li>
+    </ul>
+    <p>
+      These are optional external tools, downloaded to the user profile. Roslyn language server uses MSBuild/project loading; only open source projects you trust.
+    </p>
+
+    <h2>GitHub Releases</h2>
+    <p>
+      The release workflow runs when a version tag beginning with <code>v</code> is pushed, or when manually dispatched from <strong>Actions</strong> on <code>main</code>. It restores and builds the self-contained Windows x64 app, creates the portable ZIP, builds the GUI <code>setup.exe</code> and Windows Installer <code>setup.msi</code>, generates SHA-256 checksums, and attaches all five assets to a GitHub Release.
+    </p>
+    <pre><code>git tag v1.0.0
+git push origin v1.0.0</code></pre>
+    <p>
+      The release contains <code>Studio.exe</code>, <code>Studio-win-x64.zip</code>, <code>setup.exe</code>, <code>setup.msi</code> and <code>SHA256SUMS.txt</code>.
+    </p>
+
+    <h2>Remaining limitations</h2>
+    <p>
+      Studio now has real LSP/DAP protocol bridges and a useful primitive/custom-mesh editor, but it is not a full Visual Studio or Blender clone yet:
+    </p>
+    <ul>
+      <li>The DAP UI supports common breakpoint/stepping/stack/variable flows; advanced features such as conditional/log breakpoints, expression watch editing, memory/disassembly and multi-process attach are not implemented. Adapter installation and runtime debug sessions require external runtimes; GitHub Actions validates compilation and packaging, not end-to-end interactive debugging.</li>
+      <li>C# debugging depends on compatible netcoredbg support for the selected target framework/runtime.</li>
+      <li>The 3D editor does not yet include full viewport vertex/edge/face component selection, connected multi-face bevel/loop-cut operations, sculpting with dynamic topology, seam-aware UV unwrapping, shader-node graphs, rigging, advanced animation curves or texture/material import. Face bevel and extrusion operate on a numerically selected triangle; the sculpt brush affects vertices near the clicked surface.</li>
+      <li>There is no plugin marketplace, Git GUI, global workspace search, project-template wizard or multi-document tab restoration yet.</li>
+      <li>The ConPTY terminal is hosted in a native HWND surface and therefore has WPF airspace limitations.</li>
+    </ul>
+
+    <h2>Repository structure</h2>
+    <pre><code>Studio.sln
+src/Studio.App/
+  App.xaml
+  MainWindow.xaml
+  MainWindow.xaml.cs
+  Assets/
+    monaco.html
+    monaco/vs/                 # generated by scripts/prepare-monaco.mjs
+    install-language-tools.ps1
+  Models/
+  Services/
+    StdioProtocolProcess.cs
+scripts/
+  prepare-monaco.mjs
+  install-language-tools.ps1
+.github/workflows/
+  build.yml
+  release.yml
+setup.ps1
+build.ps1
+run.ps1
+start.bat</code></pre>
+
+    <h2>Safety</h2>
+    <p>
+      The app does not require administrator rights. Setup/build scripts do not run source files automatically. Debuggers and language servers execute under the current Windows user and should only be used with projects you trust.
+    </p>
+
+    <h2>Windows installers</h2>
+    <p>The release workflow also builds two installers:</p>
+    <ul>
+      <li>
+        <strong><code>setup.exe</code></strong> is a graphical, per-user installer. It downloads the latest stable GitHub Release ZIP, verifies its SHA-256 checksum, lets you choose the install directory, extracts the app and bundled Monaco assets, and can create Start Menu and desktop shortcuts. It does not require administrator rights when installed under your user profile.
+      </li>
+      <li>
+        <strong><code>setup.msi</code></strong> is a Windows Installer package for managed or machine-wide deployment. It installs the published files under Program Files, creates a Start Menu shortcut, supports standard Windows Installer uninstall and major-version upgrades, and is published as <strong>Luis Apps Inc.</strong>
+      </li>
+    </ul>
+    <p>
+      To publish a release manually, open <strong>Actions &rarr; Build and publish Windows release &rarr; Run workflow</strong>, select <code>main</code>, and enter a new tag such as <code>v1.0.0</code>. The workflow now runs the Release step for manual dispatches as well as pushed <code>v*</code> tags, so the GitHub Release is not skipped when started from the Actions page.
+    </p>
+    <p>
+      Each GitHub Release includes <code>Studio.exe</code>, <code>Studio-win-x64.zip</code>, <code>setup.exe</code>, <code>setup.msi</code>, and <code>SHA256SUMS.txt</code>.
+    </p>
+  </main>
+
+  <footer>
+    Studio.exe &mdash; Windows Desktop Development Environment &bull; Luis Apps Inc.
+  </footer>
+
+</body>
+</html>
