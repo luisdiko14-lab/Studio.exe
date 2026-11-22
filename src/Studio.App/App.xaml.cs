@@ -17,6 +17,12 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
+        if (!e.Args.Contains("--crash-restart", StringComparer.OrdinalIgnoreCase) &&
+            !string.Equals(Environment.GetEnvironmentVariable("STUDIO_DISABLE_CRASH_HANDLER"), "1", StringComparison.Ordinal))
+        {
+            StartCrashHandler();
+        }
+
         base.OnStartup(e);
         try
         {
@@ -32,6 +38,43 @@ public partial class App : Application
                 Path.Combine(LogDirectory, "startup.log") + "\n\n" + ex.Message,
                 "Studio.exe startup error", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(-1);
+        }
+    }
+
+
+    private static void StartCrashHandler()
+    {
+        try
+        {
+            string appDirectory = AppContext.BaseDirectory;
+            string handlerPath = Path.Combine(appDirectory, "Studio.CrashHandler.exe");
+            string applicationPath = Environment.ProcessPath
+                ?? Path.Combine(appDirectory, "Studio.exe");
+
+            if (!File.Exists(handlerPath))
+            {
+                WriteCrash("Studio Crash Handler was not found. Automatic restart protection is unavailable.");
+                return;
+            }
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = handlerPath,
+                WorkingDirectory = appDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+            };
+            startInfo.ArgumentList.Add("--watch");
+            startInfo.ArgumentList.Add(Environment.ProcessId.ToString());
+            startInfo.ArgumentList.Add(applicationPath);
+            startInfo.ArgumentList.Add(appDirectory);
+
+            System.Diagnostics.Process.Start(startInfo)?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            WriteCrash("Could not start Studio Crash Handler. Automatic restart protection is unavailable.", ex);
         }
     }
 
