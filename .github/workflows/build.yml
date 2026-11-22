@@ -50,6 +50,18 @@ jobs:
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Studio.exe was not produced" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco editor assets were not published" }
 
+      - name: Publish Studio Crash Handler
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          dotnet publish src/Studio.CrashHandler/Studio.CrashHandler.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true --output artifacts/CrashHandler
+          if ($LASTEXITCODE -ne 0) { throw "Studio Crash Handler publish failed with exit code $LASTEXITCODE" }
+          foreach ($file in @("Studio.CrashHandler.exe", "Studio.CrashHandler.Core.dll", "Studio.CrashHandler.Diagnostics.dll")) {
+            $source = Join-Path "artifacts/CrashHandler" $file
+            if (-not (Test-Path $source)) { throw "Missing crash handler component: $source" }
+            Copy-Item $source "artifacts/Studio/$file" -Force
+          }
+
       - name: Include optional developer-tool installer in the MSI payload
         if: github.event_name != 'pull_request'
         shell: pwsh
@@ -69,6 +81,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: pwsh
         run: |
+          $env:STUDIO_DISABLE_CRASH_HANDLER = "1"
           $exe = (Resolve-Path "artifacts/Studio/Studio.exe").Path
           $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
           Start-Sleep -Seconds 8
@@ -111,6 +124,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: pwsh
         run: |
+          $env:STUDIO_DISABLE_CRASH_HANDLER = "1"
           $installDir = Join-Path $env:RUNNER_TEMP "StudioMsiSmoke"
           $logPath = Join-Path $env:RUNNER_TEMP "StudioMsiInstall.log"
           $msiPath = (Resolve-Path "artifacts/setup.msi").Path
