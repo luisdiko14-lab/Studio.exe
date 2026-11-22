@@ -67,7 +67,7 @@ public partial class MainWindow : Window
             await DownloadPackageAsync(downloadUrl, zipPath);
             SetProgress(76, "Verifying the download checksum…");
             string checksums = await _http.GetStringAsync(checksumUrl);
-            string? checksumLine = checksums.Split(new[] { "\\r\\n", "\\n" }, StringSplitOptions.RemoveEmptyEntries)
+            string? checksumLine = checksums.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault(line => line.EndsWith("  " + packageName, StringComparison.OrdinalIgnoreCase));
             if (checksumLine is null)
                 throw new InvalidDataException("The release checksum file does not contain the ZIP checksum.");
