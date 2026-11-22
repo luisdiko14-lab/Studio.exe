@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -114,11 +115,41 @@ public partial class MainWindow : Window
                     installedExe, installDirectory);
             }
 
-            SetProgress(100, $"Installed successfully from {releaseName}.");
+            string? optionalToolsError = null;
+            if (Node22CheckBox.IsChecked == true ||
+                Python3CheckBox.IsChecked == true ||
+                DotNet10CheckBox.IsChecked == true)
+            {
+                SetProgress(98, "Installing selected developer tools (administrator approval required)…");
+                try
+                {
+                    await InstallSelectedDeveloperToolsAsync(workingDirectory);
+                }
+                catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+                {
+                    optionalToolsError = "Administrator approval was cancelled. Studio.exe itself was installed successfully.";
+                }
+                catch (Exception ex)
+                {
+                    optionalToolsError = ex.Message +
+                        Environment.NewLine + Environment.NewLine +
+                        "Developer tool installation log: " +
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                            "Luis Apps Inc", "Studio.exe", "Logs", "developer-tools-install.log");
+                }
+            }
+
+            SetProgress(100, optionalToolsError is null
+                ? $"Installed successfully from {releaseName}."
+                : "Studio.exe installed; optional tools were not all installed.");
             InstallButton.Content = "Installed";
             MessageBox.Show(this,
-                "Studio.exe has been installed successfully.",
-                "Installation complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                optionalToolsError is null
+                    ? "Studio.exe has been installed successfully."
+                    : "Studio.exe was installed successfully, but the optional developer tools need attention.\n\n" + optionalToolsError,
+                optionalToolsError is null ? "Installation complete" : "Studio.exe installed with warnings",
+                MessageBoxButton.OK,
+                optionalToolsError is null ? MessageBoxImage.Information : MessageBoxImage.Warning);
 
             if (LaunchCheckBox.IsChecked == true)
             {
@@ -141,6 +172,48 @@ public partial class MainWindow : Window
             catch { /* Temporary files can be removed on the next run if still locked. */ }
             SetBusy(false);
         }
+    }
+
+    private async Task InstallSelectedDeveloperToolsAsync(string workingDirectory)
+    {
+        using var resource = typeof(MainWindow).Assembly.GetManifestResourceStream(
+            "StudioSetup.Install-DeveloperTools.ps1")
+            ?? throw new InvalidOperationException("The developer-tool installer script was not embedded in setup.exe.");
+
+        string scriptPath = Path.Combine(workingDirectory, "Install-DeveloperTools.ps1");
+        await using (var output = File.Create(scriptPath))
+            await resource.CopyToAsync(output);
+
+        var arguments = new List<string>
+        {
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $"\"{scriptPath}\""
+        };
+        if (Node22CheckBox.IsChecked == true) arguments.Add("-Node22");
+        if (Python3CheckBox.IsChecked == true) arguments.Add("-Python3");
+        if (DotNet10CheckBox.IsChecked == true) arguments.Add("-DotNet10");
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "WindowsPowerShell", "v1.0", "powershell.exe"),
+            Arguments = string.Join(" ", arguments),
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Normal
+        };
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Windows could not start the developer-tool installer.");
+
+        await process.WaitForExitAsync();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"The developer-tool installer exited with code {process.ExitCode}.");
     }
 
     private async Task<(string Url, string ChecksumUrl, string PackageName, string Name)> FindLatestPackageAsync()
@@ -312,6 +385,9 @@ public partial class MainWindow : Window
         StartMenuCheckBox.IsEnabled = !busy;
         DesktopCheckBox.IsEnabled = !busy;
         LaunchCheckBox.IsEnabled = !busy;
+        Node22CheckBox.IsEnabled = !busy;
+        Python3CheckBox.IsEnabled = !busy;
+        DotNet10CheckBox.IsEnabled = !busy;
         if (busy)
             InstallButton.Content = "Installing…";
         else if (InstallProgress.Value < 100)
