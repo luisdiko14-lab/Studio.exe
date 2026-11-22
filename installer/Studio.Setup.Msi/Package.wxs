@@ -1,0 +1,49 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Studio.exe"
+      Manufacturer="AudioQuack"
+      Version="$(var.ProductVersion)"
+      UpgradeCode="8DF4F7AC-8F12-4DDC-9D50-4C06D4E5D14A"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Studio.exe is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="StudioIcon" SourceFile="$(var.PublishDir)\Studio.exe" />
+    <Property Id="ARPPRODUCTICON" Value="StudioIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/luisdiko14-lab/Studio.exe" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/luisdiko14-lab/Studio.exe/issues" />
+
+    <Feature Id="MainFeature" Title="Studio.exe" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Studio.exe">
+        <Files Include="$(var.PublishDir)\**" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonProgramsFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Studio.exe">
+        <Component Id="StartMenuShortcut" Guid="*">
+          <Shortcut
+              Id="StudioStartMenuShortcut"
+              Name="Studio.exe"
+              Target="[INSTALLFOLDER]Studio.exe"
+              WorkingDirectory="INSTALLFOLDER"
+              Description="Studio.exe development environment" />
+          <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
+          <RegistryValue
+              Root="HKLM"
+              Key="Software\AudioQuack\Studio.exe"
+              Name="StartMenuShortcut"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>
