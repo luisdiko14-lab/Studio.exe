@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#080b12">
-  <meta name="description" content="Studio.exe is a Windows development environment by Luis Apps Inc. Download the editor, explore its features, and get started.">
+  <meta name="description" content="Studio.exe 2.0.0 — a modern Windows development workspace by Luis Apps Inc. Download the installer, MSI, standalone app, portable ZIP and checksums.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Studio.exe — Build something great">
   <meta property="og:description" content="A modern Windows development environment with a Monaco editor, terminal, debugging tools and a 3D workspace.">
-  <title>Studio.exe — A development space built for Windows</title>
+  <title>Studio.exe 2.0.0 — Your ideas. One workspace.</title>
   <link rel="preconnect" href="https://api.github.com">
   <style>
     :root{color-scheme:dark;--bg:#080b12;--panel:#101622;--panel2:#141d2b;--line:rgba(157,179,216,.14);--muted:#9aa9bf;--text:#edf3ff;--blue:#79a8ff;--cyan:#69e0dc;--purple:#a78bfa;--green:#80e2b0;--radius:22px;--max:1160px}
@@ -164,14 +164,14 @@ app.<span class="fn">run</span>();</div>
               <span class="kicker">Ready when you are</span>
               <h2>Make room for<br><span class="gradient">what's next.</span></h2>
               <p>Download the latest Windows x64 build. Choose the guided installer, Windows Installer package, standalone app or portable archive.</p>
-              <div class="release-meta"><span class="pill" id="version">Latest release</span><span id="release-status" aria-live="polite">Checking GitHub releases…</span></div>
+              <div class="release-meta"><span class="pill" id="version">v2.0.0</span><span id="release-status" aria-live="polite">Official GitHub release · Windows x64</span></div>
             </div>
             <div class="download-options" aria-label="Download options">
-              <a class="download-option" data-asset="setup.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/latest" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">EXE</span><span><b>Setup.exe</b><small>Guided installer</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="setup.msi" href="https://github.com/luisdiko14-lab/Studio.exe/releases/latest" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">MSI</span><span><b>Setup.msi</b><small>Windows Installer</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="Studio.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/latest" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">APP</span><span><b>Studio.exe</b><small>Standalone executable</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="Studio-win-x64.zip" href="https://github.com/luisdiko14-lab/Studio.exe/releases/latest" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">ZIP</span><span><b>Portable ZIP</b><small>App and bundled assets</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="SHA256SUMS.txt" href="https://github.com/luisdiko14-lab/Studio.exe/releases/latest" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">SHA</span><span><b>SHA256 checksums</b><small>Verify your download</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="setup.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.exe" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">EXE</span><span><b>Setup.exe</b><small>Guided installer</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="setup.msi" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.msi" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">MSI</span><span><b>Setup.msi</b><small>Windows Installer</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="Studio.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio.exe" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">APP</span><span><b>Studio.exe</b><small>Standalone executable</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="Studio-win-x64.zip" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio-win-x64.zip" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">ZIP</span><span><b>Portable ZIP</b><small>App and bundled assets</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="SHA256SUMS.txt" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/SHA256SUMS.txt" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">SHA</span><span><b>SHA256 checksums</b><small>Verify your download</small></span></span><span class="arrow">↓</span></a>
             </div>
           </div>
         </div>
@@ -197,47 +197,7 @@ app.<span class="fn">run</span>();</div>
   <footer><div class="wrap footer-inner"><span>© <span id="year"></span> Luis Apps Inc. · Studio.exe</span><div class="footer-links"><a href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/luisdiko14-lab/Studio.exe/releases" target="_blank" rel="noopener">Releases</a><a href="#docs">Documentation</a></div></div></footer>
 
   <script>
-    (() => {
-      const repo = 'luisdiko14-lab/Studio.exe';
-      const status = document.getElementById('release-status');
-      const version = document.getElementById('version');
-      document.getElementById('year').textContent = new Date().getFullYear();
-
-      async function loadRelease() {
-        try {
-          const response = await fetch('https://api.github.com/repos/' + repo + '/releases/latest', {
-            headers: { Accept: 'application/vnd.github+json' }
-          });
-          if (!response.ok) throw new Error('No published release');
-          const release = await response.json();
-          if (!release || !Array.isArray(release.assets)) throw new Error('Invalid release data');
-          const assets = new Map(release.assets.map(asset => [asset.name, asset.browser_download_url]));
-          document.querySelectorAll('[data-asset]').forEach(link => {
-            const url = assets.get(link.dataset.asset);
-            if (url) {
-              link.href = url;
-              link.removeAttribute('target');
-              link.removeAttribute('rel');
-              link.setAttribute('download', '');
-              link.setAttribute('aria-label', 'Download ' + link.dataset.asset);
-            } else {
-              link.href = release.html_url || ('https://github.com/' + repo + '/releases');
-              link.removeAttribute('download');
-              link.title = 'This file is not attached to the latest release. Open the release page.';
-            }
-          });
-          version.textContent = release.tag_name || 'Latest release';
-          const date = release.published_at ? new Date(release.published_at).toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'}) : '';
-          status.textContent = 'Published' + (date ? ' ' + date : '') + ' · ' + release.assets.length + ' files';
-        } catch (_) {
-          status.textContent = 'Release links open GitHub Releases';
-          document.querySelectorAll('[data-asset]').forEach(link => {
-            link.href = 'https://github.com/' + repo + '/releases/latest';
-          });
-        }
-      }
-      loadRelease();
-    })();
+    document.getElementById('year').textContent = new Date().getFullYear();
   </script>
 </body>
 </html>
