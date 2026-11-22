@@ -129,3 +129,14 @@ start.bat
 ## Safety
 
 The app does not require administrator rights. Setup/build scripts do not run source files automatically. Debuggers and language servers execute under the current Windows user and should only be used with projects you trust.
+
+## Windows installers
+
+The release workflow also builds two installers:
+
+- **`setup.exe`** is a graphical, per-user installer. It downloads the latest stable GitHub Release ZIP, verifies its SHA-256 checksum, lets you choose the install directory, extracts the app and bundled Monaco assets, and can create Start Menu and desktop shortcuts. It does not require administrator rights when installed under your user profile.
+- **`setup.msi`** is a Windows Installer package for managed or machine-wide deployment. It installs the published files under Program Files, creates a Start Menu shortcut, supports standard Windows Installer uninstall and major-version upgrades, and is published as **Luis Apps Inc.**
+
+To publish a release manually, open **Actions → Build and publish Windows release → Run workflow**, select `main`, and enter a new tag such as `v1.0.0`. The workflow now runs the Release step for manual dispatches as well as pushed `v*` tags, so the GitHub Release is not skipped when started from the Actions page.
+
+Each GitHub Release includes `Studio.exe`, `Studio-win-x64.zip`, `setup.exe`, `setup.msi`, and `SHA256SUMS.txt`.
