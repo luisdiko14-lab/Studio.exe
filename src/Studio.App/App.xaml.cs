@@ -102,14 +102,15 @@ public partial class App : Application
         e.SetObserved();
     }
 
-    private static void WriteCrash(string heading, Exception exception)
+    private static void WriteCrash(string heading, Exception? exception = null)
     {
         try
         {
             Directory.CreateDirectory(LogDirectory);
+            var details = exception is null ? string.Empty : Environment.NewLine + exception;
             File.AppendAllText(
                 Path.Combine(LogDirectory, "startup.log"),
-                $"[{DateTimeOffset.Now:O}] {heading}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 72)}{Environment.NewLine}",
+                $"[{DateTimeOffset.Now:O}] {heading}{details}{Environment.NewLine}{new string('-', 72)}{Environment.NewLine}",
                 new UTF8Encoding(false));
         }
         catch { }
