@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows;
 using Microsoft.Win32;
@@ -59,11 +60,24 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(workingDirectory);
             SetProgress(2, "Checking the latest GitHub release…");
 
-            var (downloadUrl, releaseName) = await FindLatestPackageAsync();
+            var (downloadUrl, checksumUrl, packageName, releaseName) = await FindLatestPackageAsync();
             SetProgress(5, $"Downloading {releaseName}…");
 
             string zipPath = Path.Combine(workingDirectory, "Studio-win-x64.zip");
             await DownloadPackageAsync(downloadUrl, zipPath);
+            SetProgress(76, "Verifying the download checksum…");
+            string checksums = await _http.GetStringAsync(checksumUrl);
+            string? checksumLine = checksums.Split(new[] { "\\r\\n", "\\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault(line => line.EndsWith("  " + packageName, StringComparison.OrdinalIgnoreCase));
+            if (checksumLine is null)
+                throw new InvalidDataException("The release checksum file does not contain the ZIP checksum.");
+            string expectedHash = checksumLine.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
+            await using (var verifyStream = File.OpenRead(zipPath))
+            {
+                string actualHash = Convert.ToHexString(await SHA256.HashDataAsync(verifyStream)).ToLowerInvariant();
+                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The downloaded ZIP failed SHA-256 verification. The installer stopped to protect your files.");
+            }
 
             string extractedDirectory = Path.Combine(workingDirectory, "extracted");
             Directory.CreateDirectory(extractedDirectory);
@@ -129,7 +143,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<(string Url, string Name)> FindLatestPackageAsync()
+    private async Task<(string Url, string ChecksumUrl, string PackageName, string Name)> FindLatestPackageAsync()
     {
         using var response = await _http.GetAsync(ReleasesApi);
         response.EnsureSuccessStatusCode();
@@ -144,20 +158,32 @@ public partial class MainWindow : Window
         if (!root.TryGetProperty("assets", out var assets))
             throw new InvalidDataException("The latest GitHub release has no downloadable assets.");
 
+        string? packageUrl = null;
+        string? packageName = null;
+        string? checksumUrl = null;
         foreach (var asset in assets.EnumerateArray())
         {
             string name = asset.GetProperty("name").GetString() ?? "";
+            string? url = asset.GetProperty("browser_download_url").GetString();
             if (name.Equals("Studio-win-x64.zip", StringComparison.OrdinalIgnoreCase) ||
                 name.Equals("Studio.exe-win-x64.zip", StringComparison.OrdinalIgnoreCase))
             {
-                string? url = asset.GetProperty("browser_download_url").GetString();
-                if (!string.IsNullOrWhiteSpace(url))
-                    return (url, releaseName);
+                packageUrl = url;
+                packageName = name;
+            }
+            else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
+            {
+                checksumUrl = url;
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(packageUrl) &&
+            !string.IsNullOrWhiteSpace(packageName) &&
+            !string.IsNullOrWhiteSpace(checksumUrl))
+            return (packageUrl, checksumUrl, packageName, releaseName);
+
         throw new FileNotFoundException(
-            "The latest GitHub release does not contain Studio-win-x64.zip. Please try again after the release workflow finishes.");
+            "The latest GitHub release must contain Studio-win-x64.zip and SHA256SUMS.txt. Please try again after the release workflow finishes.");
     }
 
     private async Task DownloadPackageAsync(string url, string destination)
