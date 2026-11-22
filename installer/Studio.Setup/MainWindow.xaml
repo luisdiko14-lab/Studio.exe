@@ -1,8 +1,8 @@
 <Window x:Class="StudioSetup.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Studio.exe Setup" Width="900" Height="570"
-        MinWidth="900" MinHeight="570" MaxWidth="900" MaxHeight="570"
+        Title="Studio.exe Setup" Width="900" Height="680"
+        MinWidth="900" MinHeight="680" MaxWidth="900" MaxHeight="680"
         WindowStartupLocation="CenterScreen" Background="#0B1020"
         Foreground="#E8EDF7" FontFamily="Segoe UI">
     <Grid>
@@ -91,7 +91,16 @@
                 <CheckBox x:Name="LaunchCheckBox" Content="Launch Studio.exe when installation finishes"
                           IsChecked="True"/>
 
-                <Border Background="#111B2B" CornerRadius="10" Padding="16" Margin="0,28,0,0">
+                <TextBlock Text="OPTIONAL DEVELOPER TOOLS" FontSize="11" FontWeight="Bold"
+                           Foreground="#91A4C2" Margin="0,20,0,4"/>
+                <CheckBox x:Name="Node22CheckBox" Content="Install Node.js 22 (JavaScript / TypeScript)"/>
+                <CheckBox x:Name="Python3CheckBox" Content="Install Python 3"/>
+                <CheckBox x:Name="DotNet10CheckBox" Content="Install .NET 10 SDK (C# / .NET development)"/>
+                <TextBlock Text="Selected tools install system-wide and require administrator approval."
+                           FontSize="10" Foreground="#71829D" Margin="0,5,0,0"
+                           TextWrapping="Wrap"/>
+
+                <Border Background="#111B2B" CornerRadius="10" Padding="16" Margin="0,18,0,0">
                     <StackPanel>
                         <Grid>
                             <TextBlock Text="INSTALLATION PROGRESS" FontSize="10"
