@@ -90,6 +90,22 @@
     .footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     .footer-links{display:flex;gap:20px}.footer-links a:hover{color:var(--text)}
     #release-status{color:#93a5bf}
+
+    .download-overlay{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:20px;background:#03060bdc;backdrop-filter:blur(12px)}
+    .download-overlay.open{display:grid}
+    .download-dialog{width:min(100%,460px);padding:28px;border:1px solid #9db8ee38;border-radius:22px;background:linear-gradient(145deg,#172337,#0d1420);box-shadow:0 30px 100px #000b}
+    .download-dialog-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+    .download-spinner{width:42px;height:42px;flex:none;border:3px solid #ffffff20;border-top-color:#8fb4ff;border-radius:50%;animation:download-spin .8s linear infinite}
+    @keyframes download-spin{to{transform:rotate(360deg)}}
+    .download-dialog h3{margin:0;font-size:1.15rem}.download-dialog p{margin:4px 0 0;color:var(--muted);font-size:.88rem}
+    .download-file-name{overflow-wrap:anywhere;color:#dbe7ff;font-weight:700;margin:16px 0 12px}
+    .download-track{height:7px;overflow:hidden;border-radius:99px;background:#ffffff12}
+    .download-track span{display:block;width:35%;height:100%;border-radius:99px;background:linear-gradient(90deg,#80aaff,#6de2dc);animation:download-progress 1.25s ease-in-out infinite alternate}
+    @keyframes download-progress{from{transform:translateX(-15%)}to{transform:translateX(205%)}}
+    .download-dialog-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:19px;font-size:.8rem;color:#91a2bc}
+    .download-dialog-foot a{color:#a9c6ff;text-decoration:underline;text-underline-offset:3px}
+    .download-close{border:1px solid var(--line);background:#ffffff08;color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer;font:inherit}
+    @media(prefers-reduced-motion:reduce){.download-spinner,.download-track span{animation:none}}
     @media(max-width:900px){.hero{grid-template-columns:1fr;gap:46px;padding-top:70px;min-height:0}.hero-copy{max-width:700px}.visual{max-width:650px;margin:auto;width:100%}.window{transform:none}.download-layout{grid-template-columns:1fr}.feature-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.wrap{width:min(100% - 28px,var(--max))}nav{height:64px}.nav-links{gap:14px}.nav-links a:not(.nav-cta){display:none}.nav-cta{padding:9px 12px;font-size:.82rem}.hero{padding:58px 0 55px}h1{font-size:clamp(3rem,15vw,4.5rem)}.hero-copy{font-size:1rem}.hero-actions .button{width:100%}.editor{min-height:240px;font-size:10px}.float-chip{right:7px;bottom:12px}.section{padding:68px 0}.feature-grid,.docs-grid,.requirements{grid-template-columns:1fr}.feature{min-height:0}.download-card{padding:24px 17px}.trust-inner{gap:14px 22px}.footer-inner{flex-direction:column}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
@@ -167,11 +183,11 @@ app.<span class="fn">run</span>();</div>
               <div class="release-meta"><span class="pill" id="version">v2.0.0</span><span id="release-status" aria-live="polite">Official GitHub release · Windows x64</span></div>
             </div>
             <div class="download-options" aria-label="Download options">
-              <a class="download-option" data-asset="setup.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.exe" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">EXE</span><span><b>Setup.exe</b><small>Guided installer</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="setup.msi" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.msi" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">MSI</span><span><b>Setup.msi</b><small>Windows Installer</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="Studio.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio.exe" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">APP</span><span><b>Studio.exe</b><small>Standalone executable</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="Studio-win-x64.zip" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio-win-x64.zip" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">ZIP</span><span><b>Portable ZIP</b><small>App and bundled assets</small></span></span><span class="arrow">↓</span></a>
-              <a class="download-option" data-asset="SHA256SUMS.txt" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/SHA256SUMS.txt" target="_blank" rel="noopener"><span class="option-main"><span class="file-icon">SHA</span><span><b>SHA256 checksums</b><small>Verify your download</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="setup.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.exe"><span class="option-main"><span class="file-icon">EXE</span><span><b>Setup.exe</b><small>Guided installer</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="setup.msi" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/setup.msi"><span class="option-main"><span class="file-icon">MSI</span><span><b>Setup.msi</b><small>Windows Installer</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="Studio.exe" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio.exe"><span class="option-main"><span class="file-icon">APP</span><span><b>Studio.exe</b><small>Standalone executable</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="Studio-win-x64.zip" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/Studio-win-x64.zip"><span class="option-main"><span class="file-icon">ZIP</span><span><b>Portable ZIP</b><small>App and bundled assets</small></span></span><span class="arrow">↓</span></a>
+              <a class="download-option" data-asset="SHA256SUMS.txt" href="https://github.com/luisdiko14-lab/Studio.exe/releases/download/v2.0.0/SHA256SUMS.txt"><span class="option-main"><span class="file-icon">SHA</span><span><b>SHA256 checksums</b><small>Verify your download</small></span></span><span class="arrow">↓</span></a>
             </div>
           </div>
         </div>
@@ -196,8 +212,55 @@ app.<span class="fn">run</span>();</div>
 
   <footer><div class="wrap footer-inner"><span>© <span id="year"></span> Luis Apps Inc. · Studio.exe</span><div class="footer-links"><a href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/luisdiko14-lab/Studio.exe/releases" target="_blank" rel="noopener">Releases</a><a href="#docs">Documentation</a></div></div></footer>
 
+
+  <div class="download-overlay" id="download-overlay" role="dialog" aria-modal="true" aria-labelledby="download-title" aria-describedby="download-status">
+    <div class="download-dialog">
+      <div class="download-dialog-head"><span class="download-spinner" aria-hidden="true"></span><div><h3 id="download-title">Preparing your download</h3><p id="download-status" aria-live="polite">Connecting to the official GitHub release…</p></div></div>
+      <div class="download-file-name" id="download-file-name">Studio.exe</div>
+      <div class="download-track" aria-hidden="true"><span></span></div>
+      <div class="download-dialog-foot"><span>Transfer handled by your browser</span><button class="download-close" id="download-close" type="button">Close</button></div>
+      <p style="font-size:.78rem;margin-top:14px">If it doesn't start, <a id="download-fallback" href="#">click here to try again</a>.</p>
+    </div>
+  </div>
+
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    const overlay = document.getElementById('download-overlay');
+    const fileLabel = document.getElementById('download-file-name');
+    const statusLabel = document.getElementById('download-status');
+    const fallback = document.getElementById('download-fallback');
+    let pendingUrl = '';
+    function beginDownload(url, name) {
+      pendingUrl = url;
+      fileLabel.textContent = name;
+      statusLabel.textContent = 'Connecting to the official GitHub release…';
+      fallback.href = url;
+      overlay.classList.add('open');
+      document.getElementById('download-close').focus();
+      window.setTimeout(() => {
+        statusLabel.textContent = 'Your browser is starting the download. Transfer progress is managed by the browser.';
+        window.location.assign(url);
+      }, 300);
+    }
+    document.querySelectorAll('.download-option[data-asset]').forEach(link => {
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        beginDownload(link.href, link.dataset.asset);
+      });
+    });
+    fallback.addEventListener('click', event => {
+      event.preventDefault();
+      if (pendingUrl) window.location.assign(pendingUrl);
+    });
+    document.getElementById('download-close').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) overlay.classList.remove('open');
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') overlay.classList.remove('open');
+    });
+
   </script>
 </body>
 </html>
