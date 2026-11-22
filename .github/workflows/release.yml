@@ -61,6 +61,13 @@ jobs:
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Publish completed without artifacts/Studio/Studio.exe" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco assets were not published" }
 
+      - name: Include optional developer-tool installer in the MSI payload
+        shell: pwsh
+        run: |
+          Copy-Item "installer/Install-DeveloperTools.ps1" "artifacts/Studio/Install-DeveloperTools.ps1" -Force
+          if (-not (Test-Path "artifacts/Studio/Install-DeveloperTools.ps1")) { throw "Optional developer-tool installer script was not copied into the payload." }
+
+
       - name: Package portable ZIP
         shell: pwsh
         run: |
@@ -124,6 +131,7 @@ jobs:
           $monacoLoader = Join-Path $installDir "Assets/monaco/vs/loader.js"
           if (-not (Test-Path $installedExe)) { throw "MSI did not install Studio.exe to $installDir" }
           if (-not (Test-Path $monacoLoader)) { throw "MSI did not install the bundled Monaco assets." }
+          if (-not (Test-Path (Join-Path $installDir "Install-DeveloperTools.ps1"))) { throw "MSI did not install the optional developer-tool installer script." }
 
           Write-Host "Launching Studio.exe from the MSI-installed directory..."
           $app = Start-Process -FilePath $installedExe -WorkingDirectory $installDir -PassThru
