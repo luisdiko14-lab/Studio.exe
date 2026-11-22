@@ -49,7 +49,7 @@ function Add-MachinePath([string[]]$Paths) {
 
     [Environment]::SetEnvironmentVariable('Path', ($entries -join ';'), 'Machine')
     foreach ($path in $Paths) {
-        if (Test-Path $path -and (($env:Path -split ';') -notcontains $path)) {
+        if ((Test-Path $path) -and (($env:Path -split ';') -notcontains $path)) {
             $env:Path = $path + ';' + $env:Path
         }
     }
