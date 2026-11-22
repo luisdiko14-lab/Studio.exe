@@ -28,6 +28,29 @@ function Invoke-OfficialDownload([string]$Uri, [string]$Destination) {
     }
 }
 
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = [Security.Principal.WindowsPrincipal]::new($identity)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    $forwardArguments = @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', ('"{0}"' -f $PSCommandPath)
+    )
+    if ($Node22) { $forwardArguments += '-Node22' }
+    if ($Python3) { $forwardArguments += '-Python3' }
+    if ($DotNet10) { $forwardArguments += '-DotNet10' }
+
+    try {
+        Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList $forwardArguments -Verb RunAs -WindowStyle Normal | Out-Null
+        exit 0
+    }
+    catch {
+        Write-Error "Administrator approval was not granted: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
 function Add-MachinePath([string[]]$Paths) {
     $current = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $entries = [System.Collections.Generic.List[string]]::new()
@@ -134,7 +157,7 @@ try {
             $pythonArgs = @(
                 '/quiet',
                 'InstallAllUsers=1',
-                "TargetDir=$pythonDirectory",
+                ("TargetDir=`"$pythonDirectory`""),
                 'PrependPath=1',
                 'Include_pip=1',
                 'Include_test=0',
@@ -168,9 +191,6 @@ try {
 
             $dotnetDirectory = Join-Path $env:ProgramFiles 'dotnet'
             & $dotnetScript -Channel '10.0' -Architecture 'x64' -InstallDir $dotnetDirectory -NoPath
-            if ($LASTEXITCODE -ne 0) {
-                throw ".NET SDK installation script returned exit code $LASTEXITCODE."
-            }
 
             [Environment]::SetEnvironmentVariable('DOTNET_ROOT', $dotnetDirectory, 'Machine')
             Add-MachinePath @($dotnetDirectory)
