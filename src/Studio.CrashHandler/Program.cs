@@ -9,7 +9,7 @@ internal static class Program
     {
         try
         {
-            if (args.Length != 3 ||
+            if (args.Length != 4 ||
                 !args[0].Equals("--watch", StringComparison.OrdinalIgnoreCase) ||
                 !int.TryParse(args[1], out int parentProcessId))
             {
