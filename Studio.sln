@@ -4,6 +4,12 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studio.App", "src\Studio.App\Studio.App.csproj", "{4B5921E8-3A66-4A5B-984F-A3F4F4DF0E62}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studio.CrashHandler.Diagnostics", "src\Studio.CrashHandler.Diagnostics\Studio.CrashHandler.Diagnostics.csproj", "{0E7D9C6A-91F7-4D58-A9D2-2D8F1E8F1001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studio.CrashHandler.Core", "src\Studio.CrashHandler.Core\Studio.CrashHandler.Core.csproj", "{0E7D9C6A-91F7-4D58-A9D2-2D8F1E8F1002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studio.CrashHandler", "src\Studio.CrashHandler\Studio.CrashHandler.csproj", "{0E7D9C6A-91F7-4D58-A9D2-2D8F1E8F1003}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
