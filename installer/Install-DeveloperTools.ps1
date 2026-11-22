@@ -13,6 +13,7 @@ $logDirectory = Join-Path $env:ProgramData 'Luis Apps Inc\Studio.exe\Logs'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 $logPath = Join-Path $logDirectory 'developer-tools-install.log'
 $transcriptStarted = $false
+$work = $null
 $failures = [System.Collections.Generic.List[string]]::new()
 
 function Write-Step([string]$Message) {
