@@ -1,4 +1,6 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix
+    xmlns="http://wixtoolset.org/schemas/v4/wxs"
+    xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
       Name="Studio.exe"
       Manufacturer="Luis Apps Inc."
@@ -9,14 +11,41 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Studio.exe is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="StudioIcon" SourceFile="$(var.PublishDir)\Studio.exe" />
+    <Icon Id="StudioIcon" SourceFile="$(var.PublishDir)\\Studio.exe" />
     <Property Id="ARPPRODUCTICON" Value="StudioIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/luisdiko14-lab/Studio.exe" />
     <Property Id="ARPHELPLINK" Value="https://github.com/luisdiko14-lab/Studio.exe/issues" />
+    <Property Id="INSTALLLEVEL" Value="1" />
 
-    <Feature Id="MainFeature" Title="Studio.exe" Level="1">
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <Feature Id="MainFeature" Title="Studio.exe" Description="The Studio.exe development environment." Level="1">
       <ComponentGroupRef Id="ApplicationFiles" />
       <ComponentRef Id="StartMenuShortcut" />
+
+      <Feature Id="Node22Feature"
+               Title="Install Node.js 22"
+               Description="Install the latest Node.js 22 x64 release from nodejs.org."
+               Level="2"
+               AllowAbsent="yes">
+        <ComponentRef Id="Node22Selection" />
+      </Feature>
+
+      <Feature Id="Python3Feature"
+               Title="Install Python 3"
+               Description="Install Python 3.15.1 x64 from python.org."
+               Level="2"
+               AllowAbsent="yes">
+        <ComponentRef Id="Python3Selection" />
+      </Feature>
+
+      <Feature Id="DotNet10SdkFeature"
+               Title="Install .NET 10 SDK"
+               Description="Install the latest .NET 10 x64 SDK from Microsoft."
+               Level="2"
+               AllowAbsent="yes">
+        <ComponentRef Id="DotNet10SdkSelection" />
+      </Feature>
     </Feature>
 
     <StandardDirectory Id="ProgramFiles64Folder">
@@ -39,7 +68,7 @@
                   <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
                   <RegistryValue
                       Root="HKLM"
-                      Key="Software\LuisAppsInc\Studio.exe"
+                      Key="Software\\LuisAppsInc\\Studio.exe"
                       Name="StartMenuShortcut"
                       Type="integer"
                       Value="1"
@@ -51,11 +80,72 @@
         </Directory>
       </Directory>
     </StandardDirectory>
+
+    <SetProperty Id="POWERSHELL_EXE"
+                 Value="[System64Folder]WindowsPowerShell\\v1.0\\powershell.exe"
+                 Before="InstallFinalize"
+                 Sequence="execute"
+                 Condition="NOT Installed" />
+    <SetProperty Id="NODE22_ARGUMENT"
+                 Value="-Node22"
+                 Before="InstallFinalize"
+                 Sequence="execute"
+                 Condition="NOT Installed AND &amp;Node22Feature = 3" />
+    <SetProperty Id="PYTHON3_ARGUMENT"
+                 Value="-Python3"
+                 Before="InstallFinalize"
+                 Sequence="execute"
+                 Condition="NOT Installed AND &amp;Python3Feature = 3" />
+    <SetProperty Id="DOTNET10_ARGUMENT"
+                 Value="-DotNet10"
+                 Before="InstallFinalize"
+                 Sequence="execute"
+                 Condition="NOT Installed AND &amp;DotNet10SdkFeature = 3" />
+
+    <CustomAction
+        Id="LaunchDeveloperToolsInstaller"
+        Property="POWERSHELL_EXE"
+        ExeCommand='-NoLogo -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]Install-DeveloperTools.ps1" [NODE22_ARGUMENT] [PYTHON3_ARGUMENT] [DOTNET10_ARGUMENT]'
+        Execute="immediate"
+        Return="asyncNoWait" />
+
+    <InstallExecuteSequence>
+      <Custom Action="LaunchDeveloperToolsInstaller"
+              After="InstallFinalize"
+              Condition="NOT Installed AND (&amp;Node22Feature = 3 OR &amp;Python3Feature = 3 OR &amp;DotNet10SdkFeature = 3)" />
+    </InstallExecuteSequence>
   </Package>
 
   <Fragment>
     <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)\**" />
+      <Files Include="$(var.PublishDir)\\**" />
     </ComponentGroup>
+
+    <Component Id="Node22Selection" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue Root="HKLM"
+                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Name="Node22"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="Python3Selection" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue Root="HKLM"
+                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Name="Python3"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="DotNet10SdkSelection" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue Root="HKLM"
+                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Name="DotNet10Sdk"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
   </Fragment>
 </Wix>
