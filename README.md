@@ -80,14 +80,14 @@ These are optional external tools, downloaded to the user profile. Roslyn langua
 
 ## GitHub Releases
 
-The release workflow runs when a version tag beginning with `v` is pushed. It restores, builds and publishes the self-contained Windows x64 app, creates a portable ZIP and SHA-256 checksum, and attaches all three to a GitHub Release.
+The release workflow runs when a version tag beginning with `v` is pushed, or when manually dispatched from **Actions** on `main`. It restores and builds the self-contained Windows x64 app, creates the portable ZIP, builds the GUI `setup.exe` and Windows Installer `setup.msi`, generates SHA-256 checksums, and attaches all five assets to a GitHub Release.
 
 ```powershell
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The release contains `Studio.exe`, `Studio-win-x64.zip` and `SHA256SUMS.txt`.
+The release contains `Studio.exe`, `Studio-win-x64.zip`, `setup.exe`, `setup.msi` and `SHA256SUMS.txt`.
 
 ## Remaining limitations
 
