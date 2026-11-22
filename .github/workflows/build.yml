@@ -56,6 +56,14 @@ jobs:
         run: |
           Copy-Item "installer/Install-DeveloperTools.ps1" "artifacts/Studio/Install-DeveloperTools.ps1" -Force
           if (-not (Test-Path "artifacts/Studio/Install-DeveloperTools.ps1")) { throw "Optional developer-tool installer script was not copied into the payload." }
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path "installer/Install-DeveloperTools.ps1"), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | Format-List
+            throw "Developer-tool installer PowerShell syntax validation failed."
+          }
+          Write-Host "Developer-tool installer PowerShell syntax is valid."
 
       - name: Smoke-test Studio.exe startup
         if: github.event_name != 'pull_request'
