@@ -7,6 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>StudioSetup</AssemblyName>
     <RootNamespace>StudioSetup</RootNamespace>
+    <Company>Luis Apps Inc.</Company>
+    <Product>Studio.exe Setup</Product>
+    <Authors>Luis Apps Inc.</Authors>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
