@@ -11,7 +11,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Studio.exe is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="StudioIcon" SourceFile="$(var.PublishDir)\\Studio.exe" />
+    <Icon Id="StudioIcon" SourceFile="$(var.PublishDir)\Studio.exe" />
     <Property Id="ARPPRODUCTICON" Value="StudioIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/luisdiko14-lab/Studio.exe" />
     <Property Id="ARPHELPLINK" Value="https://github.com/luisdiko14-lab/Studio.exe/issues" />
@@ -68,7 +68,7 @@
                   <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
                   <RegistryValue
                       Root="HKLM"
-                      Key="Software\\LuisAppsInc\\Studio.exe"
+                      Key="Software\LuisAppsInc\Studio.exe"
                       Name="StartMenuShortcut"
                       Type="integer"
                       Value="1"
@@ -82,7 +82,7 @@
     </StandardDirectory>
 
     <SetProperty Id="POWERSHELL_EXE"
-                 Value="[System64Folder]WindowsPowerShell\\v1.0\\powershell.exe"
+                 Value="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
                  Before="InstallFinalize"
                  Sequence="execute"
                  Condition="NOT Installed" />
@@ -118,12 +118,12 @@
 
   <Fragment>
     <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)\\**" />
+      <Files Include="$(var.PublishDir)\**" />
     </ComponentGroup>
 
     <Component Id="Node22Selection" Directory="INSTALLFOLDER" Guid="*">
       <RegistryValue Root="HKLM"
-                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Key="Software\LuisAppsInc\Studio.exe\SelectedTools"
                      Name="Node22"
                      Type="integer"
                      Value="1"
@@ -132,7 +132,7 @@
 
     <Component Id="Python3Selection" Directory="INSTALLFOLDER" Guid="*">
       <RegistryValue Root="HKLM"
-                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Key="Software\LuisAppsInc\Studio.exe\SelectedTools"
                      Name="Python3"
                      Type="integer"
                      Value="1"
@@ -141,7 +141,7 @@
 
     <Component Id="DotNet10SdkSelection" Directory="INSTALLFOLDER" Guid="*">
       <RegistryValue Root="HKLM"
-                     Key="Software\\LuisAppsInc\\Studio.exe\\SelectedTools"
+                     Key="Software\LuisAppsInc\Studio.exe\SelectedTools"
                      Name="DotNet10Sdk"
                      Type="integer"
                      Value="1"
