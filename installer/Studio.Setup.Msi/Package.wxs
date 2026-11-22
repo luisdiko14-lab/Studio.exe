@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
       Name="Studio.exe"
-      Manufacturer="AudioQuack"
+      Manufacturer="Luis Apps Inc."
       Version="$(var.ProductVersion)"
       UpgradeCode="8DF4F7AC-8F12-4DDC-9D50-4C06D4E5D14A"
       Scope="perMachine">
