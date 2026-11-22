@@ -23,24 +23,32 @@
       <Directory Id="INSTALLFOLDER" Name="Studio.exe" />
     </StandardDirectory>
 
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ApplicationProgramsFolder" Name="Studio.exe">
-        <Component Id="StartMenuShortcut" Guid="*">
-          <Shortcut
-              Id="StudioStartMenuShortcut"
-              Name="Studio.exe"
-              Target="[INSTALLFOLDER]Studio.exe"
-              WorkingDirectory="INSTALLFOLDER"
-              Description="Studio.exe development environment" />
-          <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
-          <RegistryValue
-              Root="HKLM"
-              Key="Software\LuisAppsInc\Studio.exe"
-              Name="StartMenuShortcut"
-              Type="integer"
-              Value="1"
-              KeyPath="yes" />
-        </Component>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="CommonMicrosoftFolder" Name="Microsoft">
+        <Directory Id="CommonWindowsFolder" Name="Windows">
+          <Directory Id="CommonStartMenuFolder" Name="Start Menu">
+            <Directory Id="CommonProgramsFolder" Name="Programs">
+              <Directory Id="ApplicationProgramsFolder" Name="Studio.exe">
+                <Component Id="StartMenuShortcut" Guid="*">
+                  <Shortcut
+                      Id="StudioStartMenuShortcut"
+                      Name="Studio.exe"
+                      Target="[INSTALLFOLDER]Studio.exe"
+                      WorkingDirectory="INSTALLFOLDER"
+                      Description="Studio.exe development environment" />
+                  <RemoveFolder Id="RemoveStudioProgramMenuFolder" On="uninstall" />
+                  <RegistryValue
+                      Root="HKLM"
+                      Key="Software\LuisAppsInc\Studio.exe"
+                      Name="StartMenuShortcut"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes" />
+                </Component>
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
       </Directory>
     </StandardDirectory>
   </Package>
