@@ -1,0 +1,10 @@
+<Project Sdk="WixToolset.Sdk/5.0.1">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>Studio.Setup</OutputName>
+    <Platform>x64</Platform>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildProjectDirectory)\..\..\artifacts\Studio</PublishDir>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.0.0</ProductVersion>
+    <DefineConstants>$(DefineConstants);PublishDir=$(PublishDir);ProductVersion=$(ProductVersion)</DefineConstants>
+  </PropertyGroup>
+</Project>
