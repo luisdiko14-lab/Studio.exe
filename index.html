@@ -163,6 +163,54 @@
     @media(max-width:900px){.hero{grid-template-columns:1fr;gap:46px;padding-top:70px;min-height:0}.hero-copy{max-width:700px}.visual{max-width:650px;margin:auto;width:100%}.window{transform:none}.download-layout{grid-template-columns:1fr}.feature-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.wrap{width:min(100% - 28px,var(--max))}nav{height:64px}.nav-links{gap:14px}.nav-links a:not(.nav-cta){display:none}.nav-cta{padding:9px 12px;font-size:.82rem}.hero{padding:58px 0 55px}h1{font-size:clamp(3rem,15vw,4.5rem)}.hero-copy{font-size:1rem}.hero-actions .button{width:100%}.editor{min-height:240px;font-size:10px}.float-chip{right:7px;bottom:12px}.section{padding:68px 0}.feature-grid,.docs-grid,.requirements{grid-template-columns:1fr}.feature{min-height:0}.download-card{padding:24px 17px}.trust-inner{gap:14px 22px}.footer-inner{flex-direction:column}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+
+    /* Windows 11 inspired acrylic taskbar and Start menu */
+    body{padding-bottom:92px}
+    .win-taskbar{position:fixed;z-index:80;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:10px 14px max(10px,env(safe-area-inset-bottom));pointer-events:none}
+    .taskbar-dock{pointer-events:auto;position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-height:62px;padding:7px 10px 7px 12px;border:1px solid #ffffff35;border-radius:19px;background:linear-gradient(135deg,rgba(37,45,59,.82),rgba(18,24,36,.86));box-shadow:0 12px 45px #0009,0 1px 0 #ffffff20 inset,0 0 0 1px #0005;backdrop-filter:blur(32px) saturate(1.5);-webkit-backdrop-filter:blur(32px) saturate(1.5)}
+    .tb-icon{position:relative;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#eaf1ff;cursor:pointer;transition:background .18s,transform .18s;text-decoration:none}
+    .tb-icon:hover{background:#ffffff1b;transform:translateY(-3px)}
+    .tb-icon:active{transform:scale(.9)}
+    .tb-icon.active::after{content:"";position:absolute;bottom:2px;width:13px;height:3px;border-radius:4px;background:#a8c8ff;box-shadow:0 0 8px #8eb8ff88}
+    .windows-logo{display:grid;grid-template-columns:repeat(2,9px);grid-template-rows:repeat(2,9px);gap:2px;transform:skewY(-5deg)}
+    .windows-logo i{background:linear-gradient(145deg,#9ac8ff,#4e9cff);border-radius:1px}
+    .search-glass{width:16px;height:16px;border:2px solid #dce8ff;border-radius:50%;position:relative;display:block}
+    .search-glass::after{content:"";position:absolute;width:7px;height:2px;background:#dce8ff;right:-5px;bottom:-3px;transform:rotate(48deg);border-radius:2px}
+    .studio-task-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(140deg,#a8c9ff,#8885ff);color:#10182b;font-weight:900;font-size:14px;box-shadow:0 4px 12px #829bff33}
+    .task-emoji{font-size:22px;font-weight:600;color:#c4d8ff}.github-task{font-size:23px;color:#fff}
+    .tb-divider{height:28px;width:1px;background:#ffffff25;margin:0 2px}
+    .taskbar-tray{display:flex;align-items:center;gap:11px;padding:0 7px 0 10px;color:#e4edff;font-size:14px}
+    .tray-chevron{font-size:17px;color:#c5d3e8}.tray-wifi{font-size:18px}.tray-volume{font-size:13px}.tray-battery{font-size:17px;color:#b8e6c6}
+    .taskbar-clock{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;min-width:76px;padding:2px 7px;border:0;border-radius:9px;background:transparent;color:#f0f4ff;font:12px/1.35 "Segoe UI",system-ui,sans-serif;cursor:pointer}
+    .taskbar-clock:hover{background:#ffffff18}.taskbar-clock small{font-size:11px;color:#d3def0}
+    .taskbar-show-desktop{width:5px;align-self:stretch;margin-left:2px;border:0;border-left:1px solid #ffffff28;background:transparent;cursor:pointer}
+    .start-menu{position:fixed;z-index:79;left:50%;bottom:88px;width:min(540px,calc(100vw - 24px));padding:18px 20px 0;transform:translate(-50%,18px) scale(.97);transform-origin:bottom center;opacity:0;visibility:hidden;pointer-events:none;border:1px solid #ffffff38;border-radius:20px;background:linear-gradient(145deg,rgba(43,52,68,.94),rgba(25,32,46,.96));box-shadow:0 22px 80px #000a,0 1px 0 #ffffff20 inset;backdrop-filter:blur(38px) saturate(1.6);-webkit-backdrop-filter:blur(38px) saturate(1.6);transition:opacity .22s,transform .22s,visibility .22s}
+    .start-menu.open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+    .start-search{height:42px;display:flex;align-items:center;gap:12px;padding:0 14px;border:1px solid #a8caff66;border-bottom:2px solid #83b5ff;border-radius:8px;background:#111a2bd9}
+    .start-search .search-glass{width:14px;height:14px;border-color:#b8c9e4}.start-search .search-glass::after{background:#b8c9e4}
+    .start-search input{width:100%;border:0;outline:0;background:transparent;color:#f4f7ff;font:13px "Segoe UI",system-ui,sans-serif}
+    .start-search input::placeholder{color:#aab8ce}
+    .start-menu-inner{padding:22px 14px 16px}
+    .start-heading{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px;color:#f0f4ff;font-size:13px}
+    .start-heading span{font-size:11px;color:#d0def2;padding:4px 9px;border:1px solid #ffffff25;border-radius:5px}
+    .pinned-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px 4px}
+    .pinned-app{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 4px;border-radius:9px;color:#f0f4ff;text-decoration:none;transition:background .16s,transform .16s}
+    .pinned-app:hover{background:#ffffff16;transform:translateY(-2px)}
+    .pinned-app small{font:11px "Segoe UI",system-ui,sans-serif}
+    .pin-icon{width:39px;height:39px;display:grid;place-items:center;border-radius:11px;font-size:21px;color:#fff;box-shadow:0 4px 12px #0002}
+    .pin-blue{background:linear-gradient(145deg,#4e9fff,#3868d8)}.pin-green{background:linear-gradient(145deg,#49c99a,#168d79)}.pin-purple{background:linear-gradient(145deg,#aa8aff,#7250ca)}.pin-dark{background:#171b25}.pin-cyan{background:linear-gradient(145deg,#55cdd5,#2385a6)}.pin-orange{background:linear-gradient(145deg,#f5ad67,#d66d42)}
+    .start-recommended{border-top:1px solid #ffffff20;padding-top:17px;margin-top:13px}
+    .recommended-item{display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;text-decoration:none;color:#eef4ff}
+    .recommended-item:hover{background:#ffffff14}
+    .recommended-file{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:#ffffff14;color:#bcd2ff;font-size:10px;font-weight:800}
+    .recommended-item b,.recommended-item small{display:block}.recommended-item b{font-size:12px;font-weight:600}.recommended-item small{font-size:10px;color:#b7c5da;margin-top:2px}
+    .start-user-row{height:58px;margin:0 -20px;padding:0 24px;display:flex;align-items:center;gap:10px;border-top:1px solid #ffffff20;background:#111a29a8;border-radius:0 0 20px 20px;color:#f0f4ff;font-size:12px}
+    .user-avatar{width:29px;height:29px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#8bb8ff,#8178dc);color:#10182b;font-weight:800}
+    .start-user-row a{margin-left:auto;color:#fff;font-size:19px;padding:6px 9px;border-radius:7px}.start-user-row a:hover{background:#ffffff1a}
+    @media(max-width:620px){body{padding-bottom:84px}.win-taskbar{padding:7px 6px max(7px,env(safe-area-inset-bottom))}.taskbar-dock{width:max-content;max-width:100%;gap:2px;min-height:55px;padding:5px 6px;border-radius:16px}.tb-icon{width:38px;height:40px}.taskbar-tray{gap:6px;padding:0 3px 0 6px}.tray-chevron,.tray-battery{display:none}.taskbar-clock{min-width:58px;padding-inline:4px;font-size:11px}.taskbar-clock small{font-size:10px}.tb-divider{margin:0 1px}.start-menu{bottom:75px;padding:14px 14px 0}.start-menu-inner{padding:17px 7px 12px}.start-user-row{margin:0 -14px;padding:0 18px}}
+    @media(max-width:390px){.tb-icon{width:34px}.taskbar-tray{display:none}.taskbar-dock{gap:3px}.taskbar-clock{margin-left:2px}}
+    @media(prefers-reduced-motion:reduce){.start-menu,.tb-icon,.pinned-app{transition:none}}
+
   </style>
 </head>
 <body>
@@ -268,6 +316,42 @@ app.<span class="fn">run</span>();</div>
   <footer><div class="wrap footer-inner"><span>© <span id="year"></span> Luis Apps Inc. · Studio.exe</span><div class="footer-links"><a href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/luisdiko14-lab/Studio.exe/releases" target="_blank" rel="noopener">Releases</a><a href="#docs">Documentation</a></div></div></footer>
 
 
+
+  <div class="win-taskbar" role="region" aria-label="Windows 11 style taskbar">
+    <div class="taskbar-dock">
+      <button class="tb-icon start-button" id="start-button" aria-label="Start" aria-expanded="false" title="Start"><span class="windows-logo"><i></i><i></i><i></i><i></i></span></button>
+      <button class="tb-icon search-button" id="taskbar-search" aria-label="Search this page" title="Search"><span class="search-glass"></span></button>
+      <span class="tb-divider"></span>
+      <a class="tb-icon active" href="#" aria-label="Studio home" title="Studio.exe"><span class="studio-task-icon">S.</span></a>
+      <a class="tb-icon" href="#features" aria-label="Features" title="Explore features"><span class="task-emoji">▦</span></a>
+      <a class="tb-icon" href="#download" aria-label="Downloads" title="Downloads"><span class="task-emoji">↓</span></a>
+      <a class="tb-icon" href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub"><span class="github-task">●</span></a>
+      <span class="tb-divider"></span>
+      <div class="taskbar-tray"><span class="tray-chevron">⌃</span><span class="tray-wifi" title="Network">◔</span><span class="tray-volume" title="Volume">◖))</span><span class="tray-battery" title="Power">▰</span></div>
+      <button class="taskbar-clock" id="taskbar-clock" aria-label="Current date and time"><span id="taskbar-time">--:--</span><small id="taskbar-date">--/--/----</small></button>
+      <button class="taskbar-show-desktop" aria-label="Show desktop" title="Show desktop"></button>
+    </div>
+  </div>
+  <div class="start-menu" id="start-menu" aria-hidden="true">
+    <div class="start-search"><span class="search-glass"></span><input id="start-search-input" type="search" placeholder="Search for apps, settings, and documents…" aria-label="Search this page"></div>
+    <div class="start-menu-inner">
+      <div class="start-heading"><b>Pinned</b><span>All apps&nbsp; ›</span></div>
+      <div class="pinned-grid">
+        <a href="#features" class="pinned-app"><span class="pin-icon pin-blue">▦</span><small>Features</small></a>
+        <a href="#download" class="pinned-app"><span class="pin-icon pin-green">↓</span><small>Downloads</small></a>
+        <a href="#docs" class="pinned-app"><span class="pin-icon pin-purple">▤</span><small>Get started</small></a>
+        <a href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener" class="pinned-app"><span class="pin-icon pin-dark">●</span><small>GitHub</small></a>
+        <a href="#features" class="pinned-app"><span class="pin-icon pin-cyan">⌨</span><small>Code editor</small></a>
+        <a href="#docs" class="pinned-app"><span class="pin-icon pin-orange">⚙</span><small>Setup guide</small></a>
+      </div>
+      <div class="start-recommended"><div class="start-heading"><b>Recommended</b><span>More&nbsp; ›</span></div>
+        <a href="#download" class="recommended-item"><span class="recommended-file">EXE</span><span><b>Studio.exe setup</b><small>Download the latest release</small></span></a>
+        <a href="#docs" class="recommended-item"><span class="recommended-file">⌘</span><span><b>Getting started</b><small>Installation and requirements</small></span></a>
+      </div>
+    </div>
+    <div class="start-user-row"><span class="user-avatar">L</span><b>Luis Apps Inc.</b><a href="#top" id="start-power" title="Close Start menu">⏻</a></div>
+  </div>
+
   <div class="download-overlay" id="download-overlay" role="dialog" aria-modal="true" aria-labelledby="download-title" aria-describedby="download-status">
     <div class="download-dialog">
       <div class="download-dialog-head"><span class="download-spinner" aria-hidden="true"></span><div><h3 id="download-title">Preparing your download</h3><p id="download-status" aria-live="polite">Connecting to the official GitHub release…</p></div></div>
@@ -280,6 +364,48 @@ app.<span class="fn">run</span>();</div>
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Windows 11-style taskbar: live clock and animated Start menu.
+    const startButton = document.getElementById('start-button');
+    const startMenu = document.getElementById('start-menu');
+    const searchButton = document.getElementById('taskbar-search');
+    const searchInput = document.getElementById('start-search-input');
+    function setStartMenu(open) {
+      startMenu.classList.toggle('open', open);
+      startMenu.setAttribute('aria-hidden', String(!open));
+      startButton.setAttribute('aria-expanded', String(open));
+      if (open) window.setTimeout(() => searchInput.focus(), 180);
+    }
+    startButton.addEventListener('click', () => setStartMenu(!startMenu.classList.contains('open')));
+    searchButton.addEventListener('click', () => setStartMenu(true));
+    document.getElementById('start-power').addEventListener('click', () => setStartMenu(false));
+    startMenu.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setStartMenu(false)));
+    document.addEventListener('click', event => {
+      if (!startMenu.contains(event.target) && !startButton.contains(event.target) && !searchButton.contains(event.target)) setStartMenu(false);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') setStartMenu(false);
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); setStartMenu(true);
+      }
+    });
+    searchInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        const query = searchInput.value.trim().toLowerCase();
+        const target = query.includes('down') || query.includes('install') ? '#download' :
+          query.includes('doc') || query.includes('start') || query.includes('setup') ? '#docs' :
+          query.includes('feature') || query.includes('code') ? '#features' : '';
+        if (target) { setStartMenu(false); document.querySelector(target).scrollIntoView({behavior: motionQuery.matches ? 'auto' : 'smooth'}); }
+      }
+    });
+    function updateTaskbarClock() {
+      const now = new Date();
+      document.getElementById('taskbar-time').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      document.getElementById('taskbar-date').textContent = now.toLocaleDateString([], {month:'numeric',day:'numeric',year:'numeric'});
+    }
+    updateTaskbarClock();
+    window.setInterval(updateTaskbarClock, 15000);
+
 
     const overlay = document.getElementById('download-overlay');
     const fileLabel = document.getElementById('download-file-name');
