@@ -121,7 +121,7 @@ jobs:
             throw "MSI installation failed with exit code $($install.ExitCode)."
           }
           $installedExe = Join-Path $installDir "Studio.exe"
-          $monacoLoader = Join-Path $installDir "Assetsmonacosloader.js"
+          $monacoLoader = Join-Path $installDir "Assets/monaco/vs/loader.js"
           if (-not (Test-Path $installedExe)) { throw "MSI did not install Studio.exe to $installDir" }
           if (-not (Test-Path $monacoLoader)) { throw "MSI did not install the bundled Monaco assets." }
 
@@ -130,7 +130,7 @@ jobs:
           Start-Sleep -Seconds 8
           $app.Refresh()
           if ($app.HasExited) {
-            $crashLog = Join-Path $env:LOCALAPPDATA "Luis Apps IncStudio.exeLogsstartup.log"
+            $crashLog = Join-Path $env:LOCALAPPDATA "Luis Apps Inc/Studio.exe/Logs/startup.log"
             if (Test-Path $crashLog) { Get-Content $crashLog -Tail 100 }
             throw "MSI-installed Studio.exe exited during startup with code $($app.ExitCode)."
           }
