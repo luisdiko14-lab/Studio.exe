@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Build Studio.exe (Windows x64)
+    name: Build Studio.exe and installers (Windows x64)
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -49,24 +49,57 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/Studio.App/Studio.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=embedded --output artifacts/Studio
-          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { throw "Studio.exe publish failed with exit code $LASTEXITCODE" }
           if (-not (Test-Path "artifacts/Studio/Studio.exe")) { throw "Publish completed without artifacts/Studio/Studio.exe" }
           if (-not (Test-Path "artifacts/Studio/Assets/monaco/vs/loader.js")) { throw "Bundled Monaco assets were not published" }
 
-      - name: Package portable ZIP and checksum
+      - name: Package portable ZIP
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
           Compress-Archive -Path "artifacts/Studio/*" -DestinationPath "artifacts/Studio-win-x64.zip" -CompressionLevel Optimal -Force
-          $hash = (Get-FileHash "artifacts/Studio/Studio.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  Studio.exe" | Set-Content "artifacts/SHA256SUMS.txt" -Encoding ascii
 
-      - name: Upload workflow artifact
+      - name: Publish GUI setup.exe
+        shell: pwsh
+        run: |
+          dotnet publish installer/Studio.Setup/Studio.Setup.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded --output artifacts/Setup
+          if ($LASTEXITCODE -ne 0) { throw "GUI setup.exe publish failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "artifacts/Setup/StudioSetup.exe")) { throw "The GUI installer executable was not produced" }
+          Copy-Item "artifacts/Setup/StudioSetup.exe" "artifacts/setup.exe" -Force
+
+      - name: Build setup.msi
+        shell: pwsh
+        run: |
+          $version = "1.0.0"
+          if ("${{ github.ref_name }}" -match '^v?(\d+\.\d+\.\d+)') { $version = $Matches[1] }
+          $publishDir = Join-Path $env:GITHUB_WORKSPACE "artifacts\Studio"
+          dotnet build installer/Studio.Setup.Msi/Studio.Setup.Msi.wixproj --configuration Release "-p:PublishDir=$publishDir" "-p:ProductVersion=$version"
+          if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed with exit code $LASTEXITCODE" }
+          $msi = Get-ChildItem "installer/Studio.Setup.Msi/bin" -Filter "Studio.Setup.msi" -File -Recurse | Select-Object -First 1
+          if (-not $msi) { throw "WiX build completed without Studio.Setup.msi" }
+          Copy-Item $msi.FullName "artifacts/setup.msi" -Force
+
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $names = @("Studio.exe", "Studio-win-x64.zip", "setup.exe", "setup.msi")
+          $lines = foreach ($name in $names) {
+            $path = if ($name -eq "Studio.exe") { "artifacts/Studio/Studio.exe" } else { "artifacts/$name" }
+            if (-not (Test-Path $path)) { throw "Missing release asset: $path" }
+            $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name"
+          }
+          $lines | Set-Content "artifacts/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Studio.exe-win-x64
+          name: Studio.exe-Windows-x64
           path: |
             artifacts/Studio/Studio.exe
             artifacts/Studio-win-x64.zip
+            artifacts/setup.exe
+            artifacts/setup.msi
             artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -75,12 +108,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: Studio.exe ${{ github.ref_name }}
+          name: Studio.exe \${"{github.ref_name}"}
           generate_release_notes: true
           files: |
             artifacts/Studio/Studio.exe
             artifacts/Studio-win-x64.zip
+            artifacts/setup.exe
+            artifacts/setup.msi
             artifacts/SHA256SUMS.txt
           fail_on_unmatched_files: true
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: \${"{contains(github.ref_name, '-')}"}
