@@ -1,5 +1,74 @@
+using System.IO;
+using System.Text;
+using System.Windows;
+using System.Windows.Threading;
+
 namespace StudioApp;
 
-public partial class App : System.Windows.Application
+public partial class App : Application
 {
+    private static readonly string LogDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Luis Apps Inc.", "Studio.exe", "Logs");
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+        base.OnStartup(e);
+        try
+        {
+            var window = new MainWindow();
+            MainWindow = window;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            WriteCrash("Startup failed", ex);
+            MessageBox.Show(
+                "Studio.exe could not start. A diagnostic log was saved here:\n\n" +
+                Path.Combine(LogDirectory, "startup.log") + "\n\n" + ex.Message,
+                "Studio.exe startup error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(-1);
+        }
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        WriteCrash("Unhandled UI exception", e.Exception);
+        MessageBox.Show(
+            "Studio.exe encountered an unexpected error. Details were saved to startup.log.\n\n" +
+            e.Exception.Message,
+            "Studio.exe error", MessageBoxButton.OK, MessageBoxImage.Error);
+        e.Handled = true;
+    }
+
+    private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception exception)
+            WriteCrash("Fatal unhandled exception", exception);
+        else
+            WriteCrash("Fatal unhandled exception", new Exception(e.ExceptionObject?.ToString() ?? "Unknown exception"));
+    }
+
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        WriteCrash("Unobserved task exception", e.Exception);
+        e.SetObserved();
+    }
+
+    private static void WriteCrash(string heading, Exception exception)
+    {
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+            File.AppendAllText(
+                Path.Combine(LogDirectory, "startup.log"),
+                $"[{DateTimeOffset.Now:O}] {heading}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 72)}{Environment.NewLine}",
+                new UTF8Encoding(false));
+        }
+        catch { }
+    }
 }
