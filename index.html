@@ -311,7 +311,47 @@ body{background-image:radial-gradient(520px circle at var(--pointer-x) var(--poi
 .mini-status i{box-shadow:0 0 0 5px #80e2b010,0 0 15px #80e2b088}
 @media(max-width:620px){.hero-metrics{gap:17px 23px}.hero-metric strong{font-size:.98rem}.hero::before{display:none}}
 @media(prefers-reduced-motion:reduce){.nav-cta::after,.button-primary::after,.feature::after{display:none}}
-\n</style>
+\n
+    /* Studio.exe — premium visual pass */
+    :root{--shine:rgba(190,218,255,.72);--spot-x:50%;--spot-y:50%}
+    ::selection{background:#8eb7ff55;color:#fff}
+    .nav-wrap{box-shadow:0 8px 30px #0002}
+    .nav-cta,.button-primary{position:relative;isolation:isolate;overflow:hidden}
+    .nav-cta::before,.button-primary::before{content:"";position:absolute;inset:-80% -35%;z-index:-1;background:linear-gradient(105deg,transparent 38%,#fff9 50%,transparent 62%);transform:translateX(-70%) rotate(8deg);transition:transform .75s ease}
+    .nav-cta:hover::before,.button-primary:hover::before{transform:translateX(70%) rotate(8deg)}
+    h1 .gradient,h2 .gradient{background-image:linear-gradient(105deg,#d7e8ff 0%,#91b8ff 24%,#c0a8ff 48%,#78e6e0 70%,#d7e8ff 88%);background-size:240% auto;animation:headline-shine 7s linear infinite;text-shadow:0 0 34px #8db7ff18}
+    @keyframes headline-shine{to{background-position:240% center}}
+    .hero{position:relative}
+    .hero::before{content:"";position:absolute;left:-9%;top:18%;width:210px;height:210px;border:1px solid #9fc1ff12;border-radius:50%;box-shadow:0 0 0 24px #9fc1ff08,0 0 0 50px #9fc1ff05;pointer-events:none;animation:orbit-pulse 9s ease-in-out infinite}
+    @keyframes orbit-pulse{50%{transform:scale(1.12);opacity:.55}}
+    .visual::before,.visual::after{content:"";position:absolute;pointer-events:none;border-radius:50%;filter:blur(1px)}
+    .visual::before{width:8px;height:8px;right:12%;top:5%;background:#9bdcff;box-shadow:0 0 22px 7px #83baff88;animation:spark-drift 6s ease-in-out infinite}
+    .visual::after{width:5px;height:5px;left:4%;bottom:18%;background:#b8a5ff;box-shadow:0 0 18px 6px #a78bfa77;animation:spark-drift 8s ease-in-out infinite reverse}
+    @keyframes spark-drift{50%{transform:translate(12px,-17px);opacity:.45}}
+    .feature,.doc,.requirement,.download-option{position:relative;isolation:isolate;overflow:hidden}
+    .feature::after,.doc::after,.download-option::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;background:radial-gradient(360px circle at var(--spot-x) var(--spot-y),#a9c9ff18,transparent 58%);transition:opacity .3s}
+    .feature:hover::after,.doc:hover::after,.download-option:hover::after{opacity:1}
+    .feature{background:linear-gradient(145deg,#172337c9,#0d131edb);box-shadow:0 1px 0 #ffffff08 inset}
+    .feature:hover,.doc:hover{transform:translateY(-8px) scale(1.012);box-shadow:0 24px 55px #0005,0 0 0 1px #a9c9ff12}
+    .feature-icon{box-shadow:0 8px 22px #759cff14,inset 0 1px 0 #ffffff14}
+    .download-card{box-shadow:0 28px 90px #0006,0 1px 0 #ffffff12 inset}
+    .download-option{background:linear-gradient(110deg,#0a101b,#111c2b)}
+    .download-option:hover{box-shadow:0 12px 30px #0004,0 0 0 1px #9db8ee16}
+    .pill{background:#ffffff05}
+    .faq-item{transition:border-color .25s,background .25s,transform .25s}
+    .faq-item:hover{border-color:#8daeff55;transform:translateY(-2px)}
+    .faq-question span:last-child{display:grid;place-items:center;width:27px;height:27px;border-radius:8px;background:#8caeff12;color:#b9ceff;transition:transform .25s,background .25s}
+    .faq-item.open .faq-question span:last-child{transform:rotate(45deg);background:#8caeff25}
+    .back-top{box-shadow:0 8px 28px #0007,0 0 24px #83aaff22}
+    .win-taskbar .taskbar-dock{transition:transform .25s,border-color .25s,box-shadow .25s}
+    .win-taskbar .taskbar-dock:hover{transform:translateY(-3px);border-color:#ffffff55;box-shadow:0 18px 55px #000a,0 1px 0 #ffffff25 inset}
+    .start-menu{box-shadow:0 28px 90px #000b,0 0 0 1px #ffffff12}
+    .footer-links a{transition:color .2s,text-shadow .2s}
+    .footer-links a:hover{color:#c9dcff;text-shadow:0 0 16px #8db7ff66}
+    @media(max-width:620px){.hero::before{width:120px;height:120px;left:-15%;top:12%}.feature:hover,.doc:hover{transform:translateY(-3px)}}
+    @media(prefers-reduced-motion:reduce){h1 .gradient,h2 .gradient,.hero::before,.visual::before,.visual::after{animation:none!important}}
+
+  </style>
 </head>
 <body>
   <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress-bar"></span></div>
