@@ -276,7 +276,42 @@
     @media(max-width:700px){.showcase{padding:12px 0 68px}.showcase-top{display:block}.showcase-top p{margin-top:12px}.showcase-grid{grid-template-columns:1fr}.showcase-panel.large{grid-row:auto;min-height:330px}.showcase-panel{min-height:210px}.back-top{right:12px;bottom:96px}}
     @media(prefers-reduced-motion:reduce){.cube,.button-primary:after{animation:none!important;transition:none!important}}
 
-  </style>
+  
+/* Studio 2.1 visual refinement */
+:root{--pointer-x:50%;--pointer-y:30%}
+body{background-image:radial-gradient(520px circle at var(--pointer-x) var(--pointer-y),rgba(112,153,255,.075),transparent 72%),radial-gradient(ellipse at 80% 0%,rgba(75,112,205,.17),transparent 34rem),radial-gradient(ellipse at 8% 30%,rgba(88,70,180,.12),transparent 32rem)}
+::selection{background:#8eafff55;color:#fff}
+.nav-wrap{box-shadow:0 8px 30px #0002}
+.nav-cta,.button{position:relative;isolation:isolate;overflow:hidden}
+.nav-cta::after,.button-primary::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 20%,#ffffff55 48%,transparent 72%);transform:translateX(-130%);transition:transform .7s ease}
+.nav-cta:hover::after,.button-primary:hover::after{transform:translateX(130%)}
+.hero{position:relative}
+.hero::before{content:"";position:absolute;left:-9%;top:14%;width:1px;height:62%;background:linear-gradient(transparent,#83aaff55,transparent);opacity:.5}
+.hero-note{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.hero-note::before{content:"✦";color:var(--cyan);font-size:1rem}
+.hero-metrics{display:flex;gap:25px;flex-wrap:wrap;margin-top:30px;padding-top:22px;border-top:1px solid var(--line);max-width:530px}
+.hero-metric{display:grid;gap:1px}
+.hero-metric strong{font-size:1.05rem;letter-spacing:-.03em;color:#eaf1ff}
+.hero-metric span{font-size:.72rem;color:#8494ac}
+.window::after{content:"";position:absolute;inset:43px 0 auto;height:1px;background:linear-gradient(90deg,transparent,#91b8ff88,transparent);opacity:.65;pointer-events:none}
+.feature,.doc,.download-option,.requirement{backdrop-filter:blur(8px)}
+.feature{position:relative;overflow:hidden}
+.feature::after{content:"";position:absolute;inset:auto -25% -80% 25%;height:130px;background:radial-gradient(ellipse,#83aaff17,transparent 70%);opacity:0;transition:opacity .35s;pointer-events:none}
+.feature:hover::after{opacity:1}
+.section-head h2{text-wrap:balance}
+.section-head p{text-wrap:pretty}
+.download-card{isolation:isolate}
+.download-card::after{content:"STUDIO";position:absolute;right:-18px;top:-54px;z-index:-1;font-size:clamp(7rem,19vw,15rem);font-weight:900;letter-spacing:-.1em;color:#ffffff05;pointer-events:none}
+.download-option:focus-visible{outline-offset:3px}
+.faq-item{transition:border-color .25s,background .25s,transform .25s}
+.faq-item:hover{transform:translateY(-2px);border-color:#8daeff55;background:#ffffff0a}
+.back-top{box-shadow:0 12px 32px #0007,0 0 0 1px #ffffff12 inset}
+.showcase-panel{transition:transform .35s,border-color .35s,box-shadow .35s}
+.showcase-panel:hover{transform:translateY(-7px);border-color:#91b5ff66;box-shadow:0 22px 55px #0005}
+.mini-status i{box-shadow:0 0 0 5px #80e2b010,0 0 15px #80e2b088}
+@media(max-width:620px){.hero-metrics{gap:17px 23px}.hero-metric strong{font-size:.98rem}.hero::before{display:none}}
+@media(prefers-reduced-motion:reduce){.nav-cta::after,.button-primary::after,.feature::after{display:none}}
+\n</style>
 </head>
 <body>
   <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress-bar"></span></div>
@@ -301,6 +336,11 @@
           <a class="button button-secondary" href="https://github.com/luisdiko14-lab/Studio.exe" target="_blank" rel="noopener">Explore the source ↗</a>
         </div>
         <p class="hero-note">Windows 10 / 11 · x64 · Self-contained application</p>
+<div class="hero-metrics" aria-label="Studio highlights">
+  <div class="hero-metric"><strong>One workspace</strong><span>Code · Build · Debug</span></div>
+  <div class="hero-metric"><strong>Windows native</strong><span>Designed for Windows 10/11</span></div>
+  <div class="hero-metric"><strong>Made to create</strong><span>From code to 3D scenes</span></div>
+</div>
       </div>
       <div class="visual" aria-label="Illustration of the Studio.exe code editor and terminal">
         <div class="glow"></div>
@@ -620,6 +660,35 @@ app.<span class="fn">run</span>();</div>
     window.addEventListener('scroll', () => backTop.classList.toggle('visible', window.scrollY > 650), {passive:true});
     backTop.addEventListener('click', () => window.scrollTo({top:0,behavior:motionQuery.matches?'auto':'smooth'}));
 
-  </script>
+  
+    // Pointer-aware ambient lighting, disabled for reduced-motion preferences.
+    if (!motionQuery.matches && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
+      let pointerFrame = 0;
+      window.addEventListener('pointermove', event => {
+        if (pointerFrame) return;
+        pointerFrame = window.requestAnimationFrame(() => {
+          document.documentElement.style.setProperty('--pointer-x', event.clientX + 'px');
+          document.documentElement.style.setProperty('--pointer-y', event.clientY + 'px');
+          pointerFrame = 0;
+        });
+      }, {passive:true});
+    }
+
+    // Keep section navigation subtly in sync with the page.
+    const navTargets = [...document.querySelectorAll('main section[id]')];
+    const navLinks = [...document.querySelectorAll('.nav-links a[href^="#"]')];
+    if ('IntersectionObserver' in window && navTargets.length && navLinks.length) {
+      const activeSections = new Map();
+      const navObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => activeSections.set(entry.target.id, entry.isIntersecting));
+        const current = [...activeSections].filter(([,visible]) => visible).map(([id]) => id).pop();
+        navLinks.forEach(link => {
+          if (link.getAttribute('href') === '#' + current) link.setAttribute('aria-current','location');
+          else link.removeAttribute('aria-current');
+        });
+      }, {rootMargin:'-25% 0px -60% 0px',threshold:0});
+      navTargets.forEach(section => navObserver.observe(section));
+    }
+\n</script>
 </body>
 </html>
